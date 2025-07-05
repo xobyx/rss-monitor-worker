@@ -161,28 +161,41 @@ async function markItemAsProcessed(itemId, env) {
 
 async function processRSSItem(item, env) {
   try {
-    // Extract content from the article URL
-    const articleContent = await extractContentFromUrl(item.link);
+    // First attempt: Use Gemini with URL context tool
+    let content;
+    let geminiResponse;
     
-    // Process with Gemini
-    const prompt = `
-    Rewrite the article at this link: ${item.link} following these guidelines:
-    
-    1. Start with an Arabic title
-    2. Write in professional Modern Standard Arabic
-    3. Use minimal formatting (plain text preferred)
-    4. Keep content concise but informative (max 3000 characters)
-    5. End with a brief summary section
-    6. Add 3-5 relevant Arabic hashtags at the end
-    
-    Article content to rewrite:
-    ${articleContent}
-    
-    Return only the formatted article with hashtags.
-    `;
-    
-    const geminiResponse = await makeGeminiRequest(prompt, env.GEMINI_API_KEY);
-    const content = geminiResponse.candidates[0].content.parts[0].text;
+    try {
+      console.log('Attempting Gemini with URL context tool...');
+      geminiResponse = await makeGeminiRequestWithUrlContext(item.link, env.GEMINI_API_KEY);
+      content = geminiResponse.candidates[0].content.parts[0].text;
+      console.log('Successfully processed with Gemini URL context tool');
+    } catch (urlContextError) {
+      console.log('Gemini URL context failed, trying manual extraction...', urlContextError.message);
+      
+      // Fallback: Extract content manually and use Gemini
+      const articleContent = await extractContentFromUrl(item.link);
+      
+      const prompt = `
+      Rewrite the article at this link: ${item.link} following these guidelines:
+      
+      1. Start with an Arabic title
+      2. Write in professional Modern Standard Arabic
+      3. Use minimal formatting (plain text preferred)
+      4. Keep content concise but informative (max 3000 characters)
+      5. End with a brief summary section
+      6. Add 3-5 relevant Arabic hashtags at the end
+      
+      Article content to rewrite:
+      ${articleContent}
+      
+      Return only the formatted article with hashtags.
+      `;
+      
+      geminiResponse = await makeGeminiRequestWithRetry(prompt, env.GEMINI_API_KEY);
+      content = geminiResponse.candidates[0].content.parts[0].text;
+      console.log('Successfully processed with manual extraction + Gemini');
+    }
     
     // Process content
     const cleanedContent = cleanMarkdownForTelegram(content);
@@ -200,7 +213,7 @@ async function processRSSItem(item, env) {
     );
     
     // Post to site
-    const siteResult = await postToSite(content, title, hashtags, env);
+    //const siteResult = await postToSite(content, title, hashtags, env);
     
     return {
       content: content,
@@ -219,55 +232,242 @@ async function processRSSItem(item, env) {
 }
 
 async function extractContentFromUrl(url) {
-  try {
-    const response = await fetch(url, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/50.0.2661.102 Safari/537.36',
-        'Referer': 'https://google.com'
+  const maxRetries = 3;
+  let lastError;
+  
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      console.log(`Content extraction attempt ${attempt}/${maxRetries} for URL: ${url}`);
+      
+      const response = await fetch(url, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+          'Accept-Language': 'en-US,en;q=0.5',
+          'Accept-Encoding': 'gzip, deflate',
+          'DNT': '1',
+          'Connection': 'keep-alive',
+          'Upgrade-Insecure-Requests': '1',
+          'Sec-Fetch-Dest': 'document',
+          'Sec-Fetch-Mode': 'navigate',
+          'Sec-Fetch-Site': 'none',
+          'Cache-Control': 'max-age=0'
+        },
+        cf: {
+          timeout: 30000,
+          cacheTtl: 300
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
-    });
-    
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}`);
+      
+      const html = await response.text();
+      
+      if (!html || html.trim().length === 0) {
+        throw new Error('Empty response received');
+      }
+      
+      // Enhanced content extraction with multiple strategies
+      let content = await extractMainContent(html);
+      
+      if (!content || content.trim().length < 100) {
+        throw new Error('Insufficient content extracted');
+      }
+      
+      return content.substring(0, MAX_CONTENT_LENGTH);
+      
+    } catch (error) {
+      lastError = error;
+      console.log(`Content extraction attempt ${attempt} failed:`, error.message);
+      
+      if (attempt < maxRetries) {
+        const waitTime = Math.pow(2, attempt) * 1000;
+        console.log(`Waiting ${waitTime}ms before retry...`);
+        await new Promise(resolve => setTimeout(resolve, waitTime));
+      }
     }
-    
-    const html = await response.text();
-    
-    // Simple HTML content extraction (without BeautifulSoup)
-    let content = html
+  }
+  
+  console.error(`Failed to extract content after ${maxRetries} attempts:`, lastError.message);
+  return `Failed to extract content from URL: ${lastError.message}`;
+}
+
+async function extractMainContent(html) {
+  try {
+    // Remove unwanted elements
+    let cleanHtml = html
       .replace(/<script[\s\S]*?<\/script>/gi, '')
       .replace(/<style[\s\S]*?<\/style>/gi, '')
       .replace(/<nav[\s\S]*?<\/nav>/gi, '')
       .replace(/<header[\s\S]*?<\/header>/gi, '')
       .replace(/<footer[\s\S]*?<\/footer>/gi, '')
-      .replace(/<aside[\s\S]*?<\/aside>/gi, '');
+      .replace(/<aside[\s\S]*?<\/aside>/gi, '')
+      .replace(/<div[^>]*class="[^"]*sidebar[^"]*"[\s\S]*?<\/div>/gi, '')
+      .replace(/<div[^>]*class="[^"]*menu[^"]*"[\s\S]*?<\/div>/gi, '')
+      .replace(/<div[^>]*class="[^"]*advertisement[^"]*"[\s\S]*?<\/div>/gi, '')
+      .replace(/<div[^>]*class="[^"]*ads[^"]*"[\s\S]*?<\/div>/gi, '');
     
-    // Try to find main content
+    // Strategy 1: Look for specific content containers
     const contentSelectors = [
+      // Article tags
       /<article[\s\S]*?<\/article>/gi,
       /<main[\s\S]*?<\/main>/gi,
-      /<div[^>]*class="[^"]*content[^"]*"[\s\S]*?<\/div>/gi,
-      /<div[^>]*class="[^"]*post-content[^"]*"[\s\S]*?<\/div>/gi
+      
+      // Common content classes
+      /<div[^>]*class="[^"]*(?:content|post-content|entry-content|article-content|main-content)[^"]*"[\s\S]*?<\/div>/gi,
+      /<div[^>]*class="[^"]*post-body[^"]*"[\s\S]*?<\/div>/gi,
+      /<div[^>]*class="[^"]*entry[^"]*"[\s\S]*?<\/div>/gi,
+      
+      // ID-based selectors
+      /<div[^>]*id="[^"]*(?:content|main|article|post)[^"]*"[\s\S]*?<\/div>/gi,
+      
+      // Role-based selectors
+      /<div[^>]*role="main"[\s\S]*?<\/div>/gi,
+      /<section[^>]*role="main"[\s\S]*?<\/section>/gi
     ];
     
+    let extractedContent = '';
+    
     for (const selector of contentSelectors) {
-      const matches = content.match(selector);
+      const matches = cleanHtml.match(selector);
       if (matches && matches.length > 0) {
-        content = matches[0];
+        // Take the longest match (likely the main content)
+        extractedContent = matches.reduce((longest, current) => 
+          current.length > longest.length ? current : longest, '');
         break;
       }
     }
     
-    // Extract text content
-    content = content.replace(/<[^>]*>/g, ' ');
-    content = content.replace(/\s+/g, ' ');
-    content = content.trim();
+    // Strategy 2: If no content containers found, extract all paragraphs
+    if (!extractedContent || extractedContent.length < 200) {
+      console.log('Using fallback paragraph extraction');
+      const paragraphs = cleanHtml.match(/<p[\s\S]*?<\/p>/gi) || [];
+      extractedContent = paragraphs.join('\n');
+    }
     
-    return content.substring(0, MAX_CONTENT_LENGTH);
+    // Strategy 3: Last resort - get all text content
+    if (!extractedContent || extractedContent.length < 100) {
+      console.log('Using last resort text extraction');
+      extractedContent = cleanHtml;
+    }
+    
+    // Clean up the extracted content
+    let textContent = extractedContent
+      .replace(/<[^>]*>/g, ' ')  // Remove HTML tags
+      .replace(/&nbsp;/g, ' ')  // Replace &nbsp; with spaces
+      .replace(/&amp;/g, '&')   // Decode HTML entities
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&quot;/g, '"')
+      .replace(/&#39;/g, "'")
+      .replace(/&apos;/g, "'")
+      .replace(/\s+/g, ' ')     // Normalize whitespace
+      .trim();
+    
+    // Remove common unwanted patterns
+    textContent = textContent
+      .replace(/^(Advertisement|Sponsored|Related:|Share this:|Tags:|Categories:).*$/gm, '')
+      .replace(/^(Read more|Continue reading|Click here).*$/gm, '')
+      .replace(/^\s*\n/gm, '')  // Remove empty lines
+      .trim();
+    
+    return textContent;
     
   } catch (error) {
-    return `Failed to extract content from URL: ${error.message}`;
+    console.error('Error in extractMainContent:', error);
+    throw error;
   }
+}
+
+async function makeGeminiRequestWithUrlContext(url, apiKey) {
+  const payload = {
+    contents: [
+      {
+        role: "user",
+        parts: [
+          {
+            text: `
+            Rewrite the article at this URL following these guidelines:
+            
+            1. Start with an Arabic title
+            2. Write in professional Modern Standard Arabic
+            3. Use minimal formatting (plain text preferred)
+            4. Keep content concise but informative (max 3000 characters)
+            5. End with a brief summary section
+            6. Add 3-5 relevant Arabic hashtags at the end
+            
+            URL: ${url}
+            
+            Return only the formatted article with hashtags.
+            `
+          }
+        ]
+      }
+    ],
+    tools: [
+      {
+        urlContext: {}
+      }
+    ],
+    generationConfig: {
+      temperature: 0.7,
+      maxOutputTokens: 2048,
+      responseMimeType: "text/plain"
+    }
+  };
+  
+  const response = await fetch(
+    `https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(payload)
+    }
+  );
+  
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Gemini URL context API error: ${response.status} - ${errorText}`);
+  }
+  
+  return await response.json();
+}
+
+async function makeGeminiRequestWithRetry(prompt, apiKey, maxRetries = 3) {
+  let lastError;
+  
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      console.log(`Gemini API attempt ${attempt}/${maxRetries}`);
+      
+      const response = await makeGeminiRequest(prompt, apiKey);
+      
+      // Check if response is valid
+      if (response.candidates && response.candidates.length > 0 && 
+          response.candidates[0].content && response.candidates[0].content.parts) {
+        return response;
+      } else {
+        throw new Error('Invalid response structure from Gemini API');
+      }
+      
+    } catch (error) {
+      lastError = error;
+      console.log(`Gemini API attempt ${attempt} failed:`, error.message);
+      
+      if (attempt < maxRetries) {
+        // Exponential backoff: wait 2^attempt seconds
+        const waitTime = Math.pow(2, attempt) * 1000;
+        console.log(`Waiting ${waitTime}ms before retry...`);
+        await new Promise(resolve => setTimeout(resolve, waitTime));
+      }
+    }
+  }
+  
+  throw new Error(`Gemini API failed after ${maxRetries} attempts. Last error: ${lastError.message}`);
 }
 
 async function makeGeminiRequest(prompt, apiKey) {
@@ -286,7 +486,7 @@ async function makeGeminiRequest(prompt, apiKey) {
   };
   
   const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash-exp:generateContent?key=${apiKey}`,
+    `https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
     {
       method: 'POST',
       headers: {
@@ -297,7 +497,8 @@ async function makeGeminiRequest(prompt, apiKey) {
   );
   
   if (!response.ok) {
-    throw new Error(`Gemini API error: ${response.status}`);
+    const errorText = await response.text();
+    throw new Error(`Gemini API error: ${response.status} - ${errorText}`);
   }
   
   return await response.json();
@@ -389,7 +590,8 @@ async function sendToTelegram(botToken, chatId, messages) {
           body: JSON.stringify({
             chat_id: chatId,
             text: messages[i],
-            parse_mode: 'Markdown'
+            parse_mode: 'MarkdownV2',
+            reply_to_message_id: 10913
           })
         }
       );
