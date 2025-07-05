@@ -1,0 +1,33 @@
+name = "rss-monitor-worker"
+main = "src/index.js"
+compatibility_date = "2024-01-01"
+
+# Cron trigger - runs every 15 minutes
+[triggers]
+crons = ["*/15 * * * *"]
+
+# KV namespace for storing processed items
+[[kv_namespaces]]
+binding = "RSS_STORAGE"
+id = "your-kv-namespace-id"
+preview_id = "your-preview-kv-namespace-id"
+
+# Environment variables
+[env.production.vars]
+RSS_FEED_URL = "https://example.com/feed.xml"
+TELEGRAM_BOT_TOKEN = "your-telegram-bot-token"
+TELEGRAM_CHAT_ID = "your-telegram-chat-id"
+GEMINI_API_KEY = "your-gemini-api-key"
+SITE_AUTH_TOKEN = "your-site-auth-token"
+
+[env.development.vars]
+RSS_FEED_URL = "https://example.com/feed.xml"
+TELEGRAM_BOT_TOKEN = "your-telegram-bot-token"
+TELEGRAM_CHAT_ID = "your-telegram-chat-id"
+GEMINI_API_KEY = "your-gemini-api-key"
+SITE_AUTH_TOKEN = "your-site-auth-token"
+
+# Optional: Set up secrets for sensitive data
+# Use: wrangler secret put TELEGRAM_BOT_TOKEN
+# Use: wrangler secret put GEMINI_API_KEY
+# Use: wrangler secret put SITE_AUTH_TOKEN
