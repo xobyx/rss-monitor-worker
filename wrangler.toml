@@ -9,8 +9,8 @@ crons = ["*/15 * * * *"]
 # KV namespace for storing processed items
 [[kv_namespaces]]
 binding = "RSS_STORAGE"
-id = "your-kv-namespace-id"
-preview_id = "your-preview-kv-namespace-id"
+id = "00f83b695bce4c7893ff61b7a54fcbba"
+preview_id = "00f83b695bce4c7893ff61b7a54fcbba"
 
 # Environment variables
 [env.production.vars]
