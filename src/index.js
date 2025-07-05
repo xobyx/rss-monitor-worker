@@ -387,6 +387,7 @@ async function processRSSItem(item, env) {
     );
     
     // Post to site (if enabled)
+    /*
     let siteResult = null;
     if (env.SITE_AUTH_TOKEN) {
       try {
@@ -401,13 +402,14 @@ async function processRSSItem(item, env) {
         siteResult = { success: false, error: siteError.message };
       }
     }
+    */
     
     return {
       status: 'success',
       item_title: item.title,
       content_length: content.length,
       telegram_results: telegramResults,
-      site_result: siteResult,
+      //site_result: siteResult,
       processed_at: new Date().toISOString()
     };
     
@@ -648,7 +650,7 @@ Return only the formatted article with hashtags.
     generationConfig: {
       temperature: CONFIG.GEMINI_TEMPERATURE,
       maxOutputTokens: CONFIG.GEMINI_MAX_TOKENS,
-      responseMimeType: "text/plain",
+      
       thinkingConfig: {
         thinkingBudget: 0
       }
@@ -657,7 +659,7 @@ Return only the formatted article with hashtags.
   };
   
   const response = await fetchWithTimeout(
-    `https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -696,7 +698,7 @@ async function makeGeminiRequest(prompt, apiKey) {
     generationConfig: {
       temperature: CONFIG.GEMINI_TEMPERATURE,
       maxOutputTokens: CONFIG.GEMINI_MAX_TOKENS,
-      responseMimeType: "text/plain",
+      
       thinkingConfig: {
         thinkingBudget: 0
       }
@@ -704,7 +706,7 @@ async function makeGeminiRequest(prompt, apiKey) {
   };
   
   const response = await fetchWithTimeout(
-    `https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
