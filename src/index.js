@@ -644,12 +644,16 @@ Return only the formatted article with hashtags.
         `.trim()
       }]
     }],
-    tools: [{ urlContext: {} }],
+    
     generationConfig: {
       temperature: CONFIG.GEMINI_TEMPERATURE,
       maxOutputTokens: CONFIG.GEMINI_MAX_TOKENS,
-      responseMimeType: "text/plain"
-    }
+      responseMimeType: "text/plain",
+      thinkingConfig: {
+        thinkingBudget: 0
+      }
+    },
+    tools: [{ urlContext: {} }]
   };
   
   const response = await fetchWithTimeout(
@@ -692,7 +696,10 @@ async function makeGeminiRequest(prompt, apiKey) {
     generationConfig: {
       temperature: CONFIG.GEMINI_TEMPERATURE,
       maxOutputTokens: CONFIG.GEMINI_MAX_TOKENS,
-      responseMimeType: "text/plain"
+      responseMimeType: "text/plain",
+      thinkingConfig: {
+        thinkingBudget: 0
+      }
     }
   };
   
