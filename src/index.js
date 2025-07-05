@@ -6,7 +6,7 @@ const CONFIG = {
   TELEGRAM_MAX_LENGTH: 4096,
   SAFE_MESSAGE_LENGTH: 3800,
   MAX_CONTENT_LENGTH: 5000,
-  MAX_RETRIES: 3,
+  MAX_RETRIES: 2,
   RETRY_DELAY_BASE: 1000,
   ITEM_TTL: 604800, // 7 days
   REQUEST_TIMEOUT: 30000,
@@ -361,18 +361,19 @@ async function processRSSItem(item, env) {
     // Try Gemini with URL context first
     try {
       console.log('Attempting Gemini with URL context...');
-      const response = await makeGeminiRequestWithUrlContext(item.link, env.GEMINI_API_KEY);
-      content = extractGeminiContent(response);
+      const mprompt=getPrompt(item.link);
+      content = await makeGeminiRequestWithRetry(mprompt, env.GEMINI_API_KEY,true);
+      
       console.log('Successfully processed with Gemini URL context');
     } catch (urlError) {
       console.log('Gemini URL context failed, trying manual extraction...', urlError.message);
       
-      // Fallback to manual extraction
+      // Fallback to manual html extraction
       const articleContent = await extractContentFromUrl(item.link);
       const prompt = createGeminiPrompt(item.link, articleContent);
       
-      const response = await makeGeminiRequestWithRetry(prompt, env.GEMINI_API_KEY);
-      content = extractGeminiContent(response);
+      content = await makeGeminiRequestWithRetry(prompt, env.GEMINI_API_KEY);
+      
       console.log('Successfully processed with manual extraction');
     }
     
@@ -425,37 +426,50 @@ async function processRSSItem(item, env) {
 }
 
 // Extract content from Gemini response
-function extractGeminiContent(response) {
+async function extractGeminiContent(res) {
+  const response= await res.json();
   if (!response.candidates || response.candidates.length === 0) {
     throw new GeminiError('No candidates in Gemini response', 'NO_CANDIDATES');
   }
+  
   
   const candidate = response.candidates[0];
   if (!candidate.content || !candidate.content.parts || candidate.content.parts.length === 0) {
     throw new GeminiError('No content in Gemini response', 'NO_CONTENT');
   }
-  
+  if (candidate.content.parts[0].text.toLowerCase().includes("###error1###"))
+  {
+    throw new GeminiError('fail to get article using url_context', 'URL_CONTEXT_FAIL');
+  }
+  if (candidate.content.parts[0].text.toLowerCase().includes("###error2###"))
+  {
+    throw new GeminiError('fail to get article using html content', 'HTML_CONTENT_FAIL');
+  }
   return candidate.content.parts[0].text;
 }
 
 // Create Gemini prompt
 function createGeminiPrompt(url, articleContent) {
   return `
-Rewrite the following article in professional Modern Standard Arabic following these guidelines:
+rewrite the article below into a professional and comprehensive article in Modern Standard Arabic. The article should cover the topic thoroughly, utilizing subheadings to organize ideas and enhance readability.
 
-1. Start with an engaging Arabic title
-2. Write in clear, professional Modern Standard Arabic
-3. Use minimal formatting (plain text preferred)
-4. Keep content concise but informative (max 3000 characters)
-5. Include a brief summary section at the end
-6. Add 3-5 relevant Arabic hashtags at the end
+1.  **Title:** Begin the article with an engaging and professional Arabic title that accurately reflects its content.
+2.  **Language and Tone:** Write in clear, professional, and contemporary Modern Standard Arabic, suitable for specialized articles.
+3.  **Formatting:** Use Telegram bot API compatible Markdown v2 for formatting.
+4.  **Content and Length:** The content should be highly informative, covering all key aspects of the topic derived from the provided URL. Do not exceed 3000 characters.
+5.  **Subheadings:** Divide the article into logical sections using 2-4 clear and relevant Arabic subheadings to structure the information and improve the flow of ideas.
+6.  **Hashtags:** Add 3 to 5 relevant Arabic hashtags at the very end of the article ( use '_' instead of spaces in hashtags, separate hashtags with a space).
+7.  **Technical Terminology:** To improve clarity and understanding, especially for scientific or highly technical concepts, you are permitted to include the English term in parentheses immediately following its Arabic translation. This should primarily be done upon the first mention of such terms.
 
-Source URL: ${url}
+**CRITICAL INSTRUCTION: Your output MUST contain ONLY the requested article. Do NOT provide any introductory phrases, concluding remarks, explanations, interpretations, or any text beyond the article itself. The output must begin immediately with the article's Arabic title and conclude strictly with the final Arabic hashtag.**
+
+**If you encounter any issue that prevents you from generating the article (e.g., inability to access or process the URL, content restrictions, or a system error), your response MUST be *only*: ###error2###**
+
+Source URL: ${url} (reference only)
 
 Article content:
 ${articleContent}
 
-Return only the formatted article with hashtags.
 `.trim();
 }
 
@@ -463,8 +477,8 @@ Return only the formatted article with hashtags.
 function processContent(content) {
   const cleanedContent = cleanMarkdownForTelegram(content);
   const { title, rest } = extractTitle(cleanedContent);
-  const hashtags = extractHashtags(rest);
-  const messages = splitMessageSmart(rest);
+  const hashtags = extractHashtags(cleanedContent);
+  const messages = splitMessageSmart(cleanedContent);
   
   return {
     title,
@@ -623,73 +637,41 @@ function cleanTextContent(htmlContent) {
     .replace(/^\s*\n/gm, '')  // Remove empty lines
     .trim();
 }
+ function getPrompt(url){
+   return `
+Please rewrite the article found at the link below into a professional and comprehensive article in Modern Standard Arabic. The article should cover the topic thoroughly, utilizing subheadings to organize ideas and enhance readability.
 
-// Enhanced Gemini API calls
-async function makeGeminiRequestWithUrlContext(url, apiKey) {
-  const payload = {
-    contents: [{
-      role: "user",
-      parts: [{
-        text: `
-Rewrite the article at this URL in professional Modern Standard Arabic:
+1.  **Title:** Begin the article with an engaging and professional Arabic title that accurately reflects its content.
+2.  **Language and Tone:** Write in clear, professional, and contemporary Modern Standard Arabic, suitable for specialized articles.
+3.  **Formatting:** Use Telegram bot API compatible Markdown v2 for formatting.
+4.  **Content and Length:** The content should be highly informative, covering all key aspects of the topic derived from the provided URL. Do not exceed 3000 characters.
+5.  **Subheadings:** Divide the article into logical sections using 2-4 clear and relevant Arabic subheadings to structure the information and improve the flow of ideas.
+6.  **Hashtags:** Add 3 to 5 relevant Arabic hashtags at the very end of the article ( use '_' instead of spaces in hashtag with multiple words , separate hashtags with a space).
+7.  **Technical Terminology:** To improve clarity and understanding, especially for scientific or highly technical concepts, you are permitted to include the English term in parentheses immediately following its Arabic translation. This should primarily be done upon the first mention of such terms.
 
-1. Start with an engaging Arabic title
-2. Write in clear, professional Modern Standard Arabic
-3. Use minimal formatting (plain text preferred)
-4. Keep content concise but informative (max 3000 characters)
-5. Include a brief summary section
-6. Add 3-5 relevant Arabic hashtags at the end
+**CRITICAL INSTRUCTION: Your output MUST contain ONLY the requested article. Do NOT provide any introductory phrases, concluding remarks, explanations, interpretations, or any text beyond the article itself. The output must begin immediately with the article's Arabic title and conclude strictly with the final Arabic hashtag.**
+
+**If you encounter any issue that prevents you from generating the article (e.g., inability to access or process the URL, content restrictions, or a system error), your response MUST be *only*: ###error1###**
 
 URL: ${url}
+        `.trim();
+ }
+// Enhanced Gemini API calls
 
-Return only the formatted article with hashtags.
-        `.trim()
-      }]
-    }],
-    
-    generationConfig: {
-      temperature: CONFIG.GEMINI_TEMPERATURE,
-      maxOutputTokens: CONFIG.GEMINI_MAX_TOKENS,
-      
-      thinkingConfig: {
-        thinkingBudget: 0
-      }
-    },
-    tools: [{ urlContext: {} }]
-  };
-  
-  const response = await fetchWithTimeout(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    }
-  );
-  
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new GeminiError(`URL context API error: ${response.status} - ${errorText}`, 'API_ERROR');
-  }
-  
-  return await response.json();
-}
 
 // Enhanced Gemini request with retry
-async function makeGeminiRequestWithRetry(prompt, apiKey) {
+async function makeGeminiRequestWithRetry(prompt, apiKey,use_context) {
   return await retryOperation(async () => {
-    const response = await makeGeminiRequest(prompt, apiKey);
+    const response = await makeGeminiRequest(prompt, apiKey,use_context);
     
-    if (!response.candidates || response.candidates.length === 0) {
-      throw new GeminiError('Invalid response structure', 'INVALID_RESPONSE');
-    }
+    
     
     return response;
   });
 }
 
 // Basic Gemini request
-async function makeGeminiRequest(prompt, apiKey) {
+async function makeGeminiRequest(prompt, apiKey,use_url_context=false) {
   const payload = {
     contents: [{
       role: "user",
@@ -705,7 +687,13 @@ async function makeGeminiRequest(prompt, apiKey) {
     }
   };
   
-  const response = await fetchWithTimeout(
+  if (use_url_context) {
+    payload.tools = [{
+      url_context: {}
+    }];
+  }
+  
+  const response = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
     {
       method: 'POST',
@@ -719,7 +707,10 @@ async function makeGeminiRequest(prompt, apiKey) {
     throw new GeminiError(`API error: ${response.status} - ${errorText}`, 'API_ERROR');
   }
   
-  return await response.json();
+  
+  const content = await extractGeminiContent(response);
+  
+  return content 
 }
 
 // Enhanced Telegram messaging
@@ -895,7 +886,7 @@ function splitMessageSmart(text, maxLength = CONFIG.SAFE_MESSAGE_LENGTH) {
   return messages.filter(msg => msg.trim().length > 0);
 }
 
-function cleanMarkdownForTelegram(text) {
+function cleanMarkdownForTelegram_(text) {
   return text
     .replace(/\*{3,}/g, '**')      // Fix multiple asterisks
     .replace(/_{3,}/g, '__')       // Fix multiple underscores
@@ -906,6 +897,54 @@ function cleanMarkdownForTelegram(text) {
     .replace(/\\\*\\\*/g, '*')     // Restore bold formatting
     .replace(/\\_\\_/g, '_')       // Restore italic formatting
     .trim();
+}
+function cleanMarkdownForTelegram(text) {
+  return text
+    // Step 1: Escape ALL special chars (MarkdownV2)
+    .replace(/([_*[\]()~`>#+\-=|{}.!])/g, '\\$1')
+
+    // Step 2: Restore intentional formatting
+    // Bold: **text** or *text*
+    .replace(/\\\*\\\*(.*?)\\\*\\\*/g, '**$1**')
+    .replace(/(?<!\*)\\\*([^*\n]+?)\\\*(?!\*)/g, '*$1*')
+    
+    // Italic: __text__ or _text_
+    .replace(/\\_\\_(.*?)\\_\\_/g, '__$1__')
+    .replace(/(?<!_)\\_([^_\n]+?)\\_(?!_)/g, '_$1_')
+    
+    // Strikethrough: ~~text~~
+    .replace(/\\~\\~(.*?)\\~\\~/g, '~~$1~~')
+    
+    // Inline code: `code`
+    .replace(/\\`([^`\n]+)\\`/g, '`$1`')
+    
+    // Code blocks with language: ```lang\ncode```
+    .replace(/\\```(\w+)?\n?([\s\S]*?)\\```/g, '```$1\n$2```')
+    
+    // Links: [text](url)
+    .replace(/\\\[([^\]]+)\\\]\\\(([^)]+)\\\)/g, '[$1]($2)')
+    
+    // Headers: # text (convert to bold for Telegram)
+    .replace(/^\\#+ (.+)$/gm, '**$1**')
+
+    // Step 3: Fix edge cases and cleanup
+    // Remove escaped formatting for standalone symbols
+    .replace(/(^|[^\\])\\\*([^*\\]|$)/g, '$1*$2')
+    .replace(/(^|[^\\])\\\_([^_\\]|$)/g, '$1_$2')
+    .replace(/(^|[^\\])\\~([^~\\]|$)/g, '$1~$2')
+    
+    // Fix URLs - escape dots but preserve structure
+    .replace(/(https?:\/\/[^\s\]]+)/g, (url) => {
+      // Don't double-escape already escaped dots
+      return url.replace(/(?<!\\)\./g, '\\.');
+    })
+    
+    // Clean up multiple consecutive escapes
+    .replace(/\\{2,}/g, '\\')
+    
+    // Step 4: Final cleanup
+    .trim()
+    .replace(/\\+$/g, '');
 }
 
 function extractTitle(text) {
