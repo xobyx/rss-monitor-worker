@@ -474,17 +474,20 @@ function createGeminiPrompt(url, articleContent) {
   return `
 rewrite the article below into a professional and comprehensive article in Modern Standard Arabic. The article should cover the topic thoroughly, utilizing subheadings to organize ideas and enhance readability.
 
-1.  **Title:** Begin the article with an engaging and professional Arabic title that accurately reflects its content.
-2.  **Language and Tone:** Write in clear, professional, and contemporary Modern Standard Arabic, suitable for specialized articles.
-3.  **Formatting:** Use Telegram bot API compatible Markdown v2 for formatting.
-4.  **Content and Length:** The content should be highly informative, covering all key aspects of the topic derived from the provided URL. Do not exceed 3000 characters.
-5.  **Subheadings:** Divide the article into logical sections using 2-4 clear and relevant Arabic subheadings to structure the information and improve the flow of ideas.
-6.  **Hashtags:** Add 3 to 5 relevant Arabic hashtags at the very end of the article ( use '_' instead of spaces in hashtags, separate hashtags with a space).
-7.  **Technical Terminology:** To improve clarity and understanding, especially for scientific or highly technical concepts, you are permitted to include the English term in parentheses immediately following its Arabic translation. This should primarily be done upon the first mention of such terms.
+1. **Title:** Begin the article with an engaging and professional Arabic title using `<h1>` tag that accurately reflects its content.
+2. **Language and Tone:** Write in clear, professional, and contemporary Modern Standard Arabic, suitable for specialized articles.
+3. **Formatting:** Use HTML formatting with the following tags only: `<h1>`, `<h2>`, `<h3>`, `<p>`, `<b>`, `<i>`, `<a>`, `<code>`, `<br>`
+4. **Content and Length:** The content should be highly informative, covering all key aspects of the topic derived from the provided URL. Do not exceed 3000 characters.
+5. **Subheadings:** Divide the article into logical sections using 2-4 clear and relevant Arabic subheadings with `<h2>` or `<h3>` tags to structure the information and improve the flow of ideas.
+6. **Paragraphs:** Use `<p>` tags for paragraphs, `<b>` for bold text, and `<i>` for italic text.
+7. **Links:** Format any links using `<a href="URL">text</a>` structure.
+8. **Hashtags:** Add 3 to 5 relevant Arabic hashtags at the very end of the article wrapped in `<code>` tags (use '_' instead of spaces in hashtag with multiple words, separate hashtags with a space).
+9. **Technical Terminology:** To improve clarity and understanding, especially for scientific or highly technical concepts, you are permitted to include the English term in parentheses immediately following its Arabic translation. This should primarily be done upon the first mention of such terms.
 
-**CRITICAL INSTRUCTION: Your output MUST contain ONLY the requested article. Do NOT provide any introductory phrases, concluding remarks, explanations, interpretations, or any text beyond the article itself. The output must begin immediately with the article's Arabic title and conclude strictly with the final Arabic hashtag.**
+**CRITICAL INSTRUCTION: Your output MUST contain ONLY the requested article. Do NOT provide any introductory phrases, concluding remarks, explanations, interpretations, or any text beyond the article itself. The output must begin immediately with the article's Arabic title in `<h1>` tags and conclude strictly with the final Arabic hashtag in `<code>` tags.**
 
 **If you encounter any issue that prevents you from generating the article (e.g., inability to access or process the URL, content restrictions, or a system error), your response MUST be *only*: ###error2###**
+
 
 Source URL: ${url} (reference only)
 
@@ -496,10 +499,21 @@ ${articleContent}
 
 // Process content for Telegram
 function processContent(content) {
-  const cleanedContent = cleanMarkdownForTelegram(content);
+  let processedOutput = content.trim();
+        
+        // Remove ```html at the beginning and ``` at the end
+  if (processedOutput.startsWith('```html')) {
+     processedOutput = processedOutput.replace(/^```html\n?/, '');
+  }
+  if (processedOutput.endsWith('```')) {
+      processedOutput = processedOutput.replace(/\n?```$/, '');
+  }
+        
+        // Trim again after removing code blocks
+  processedOutput = processedOutput.trim();
   //const { title, rest } = extractTitle(cleanedContent);
   //const hashtags = extractHashtags(cleanedContent);
-  const messages = splitMessageSmart(cleanedContent);
+  const messages = splitMessageSmart(processedOutput);
   
   return {
     //title,
@@ -698,17 +712,19 @@ function cleanTextContent(htmlContent) {
 }
  function getPrompt(url){
    return `
-Please rewrite the article found at the link below into a professional and comprehensive article in Modern Standard Arabic. The article should cover the topic thoroughly, utilizing subheadings to organize ideas and enhance readability.
+rewrite the article found at the link below into a professional and comprehensive article in Modern Standard Arabic. The article should cover the topic thoroughly, utilizing subheadings to organize ideas and enhance readability.
 
-1.  **Title:** Begin the article with an engaging and professional Arabic title that accurately reflects its content.
-2.  **Language and Tone:** Write in clear, professional, and contemporary Modern Standard Arabic, suitable for specialized articles.
-3.  **Formatting:** Use Telegram bot API compatible Markdown v2 for formatting.
-4.  **Content and Length:** The content should be highly informative, covering all key aspects of the topic derived from the provided URL. Do not exceed 3000 characters.
-5.  **Subheadings:** Divide the article into logical sections using 2-4 clear and relevant Arabic subheadings to structure the information and improve the flow of ideas.
-6.  **Hashtags:** Add 3 to 5 relevant Arabic hashtags at the very end of the article ( use '_' instead of spaces in hashtag with multiple words , separate hashtags with a space).
-7.  **Technical Terminology:** To improve clarity and understanding, especially for scientific or highly technical concepts, you are permitted to include the English term in parentheses immediately following its Arabic translation. This should primarily be done upon the first mention of such terms.
+1. **Title:** Begin the article with an engaging and professional Arabic title using `<h1>` tag that accurately reflects its content.
+2. **Language and Tone:** Write in clear, professional, and contemporary Modern Standard Arabic, suitable for specialized articles.
+3. **Formatting:** Use HTML formatting with the following tags only: `<h1>`, `<h2>`, `<h3>`, `<p>`, `<b>`, `<i>`, `<a>`, `<code>`, `<br>`
+4. **Content and Length:** The content should be highly informative, covering all key aspects of the topic derived from the provided URL. Do not exceed 3000 characters.
+5. **Subheadings:** Divide the article into logical sections using 2-4 clear and relevant Arabic subheadings with `<h2>` or `<h3>` tags to structure the information and improve the flow of ideas.
+6. **Paragraphs:** Use `<p>` tags for paragraphs, `<b>` for bold text, and `<i>` for italic text.
+7. **Links:** Format any links using `<a href="URL">text</a>` structure.
+8. **Hashtags:** Add 3 to 5 relevant Arabic hashtags at the very end of the article wrapped in `<code>` tags (use '_' instead of spaces in hashtag with multiple words, separate hashtags with a space).
+9. **Technical Terminology:** To improve clarity and understanding, especially for scientific or highly technical concepts, you are permitted to include the English term in parentheses immediately following its Arabic translation. This should primarily be done upon the first mention of such terms.
 
-**CRITICAL INSTRUCTION: Your output MUST contain ONLY the requested article. Do NOT provide any introductory phrases, concluding remarks, explanations, interpretations, or any text beyond the article itself. The output must begin immediately with the article's Arabic title and conclude strictly with the final Arabic hashtag.**
+**CRITICAL INSTRUCTION: Your output MUST contain ONLY the requested article. Do NOT provide any introductory phrases, concluding remarks, explanations, interpretations, or any text beyond the article itself. The output must begin immediately with the article's Arabic title in `<h1>` tags and conclude strictly with the final Arabic hashtag in `<code>` tags.**
 
 **If you encounter any issue that prevents you from generating the article (e.g., inability to access or process the URL, content restrictions, or a system error), your response MUST be *only*: ###error1###**
 
@@ -790,7 +806,7 @@ async function sendToTelegramWithRateLimit(botToken, chatId, messages) {
           body: JSON.stringify({
             chat_id: chatId,
             text: messages[i],
-            parse_mode: 'MarkdownV2',
+            parse_mode: 'HTML',
             reply_to_message_id: 10913,
             disable_web_page_preview: true
           })
@@ -816,6 +832,10 @@ async function sendToTelegramWithRateLimit(botToken, chatId, messages) {
           console.log(`Rate limited. Waiting ${retryAfter} seconds...`);
           await new Promise(resolve => setTimeout(resolve, retryAfter * 1000));
         }
+
+        const nm=messages.map(i=>cleanHtmlForDisplay(i))
+        await sendToTelegramWithRateLimit(botToken, chatId, nm);
+
       }
       
       logOperation('telegram_send', {
@@ -969,115 +989,7 @@ function splitMessageSmart(text, maxLength = CONFIG.SAFE_MESSAGE_LENGTH) {
   return messages.filter(msg => msg.trim().length > 0);
 }
 
-function cleanMarkdownForTelegram_(text) {
-  return text
-    .replace(/\*{3,}/g, '**')      // Fix multiple asterisks
-    .replace(/_{3,}/g, '__')       // Fix multiple underscores
-    .replace(/[*_`]$/g, '')        // Remove trailing markdown chars
-    .replace(/(?<!\*)\*(?!\*)/g, '') // Remove single asterisks
-    .replace(/(?<!_)_(?!_)/g, '')  // Remove single underscores
-    .replace(/([_*\[\]()~`>#+\-=|{}.!])/g, '\\$1') // Escape special chars for MarkdownV2
-    .replace(/\\\*\\\*/g, '*')     // Restore bold formatting
-    .replace(/\\_\\_/g, '_')       // Restore italic formatting
-    .trim();
-}
-function cleanMarkdownForTelegram__(text) {
-  return text
-    // Step 1: Escape ALL special chars (MarkdownV2)
-    .replace(/([_*[\]()~`>#+\-=|{}.!])/g, '\\$1')
 
-    // Step 2: Restore intentional formatting
-    // Bold: **text** or *text*
-    .replace(/\\\*\\\*(.*?)\\\*\\\*/g, '**$1**')
-    .replace(/(?<!\*)\\\*([^*\n]+?)\\\*(?!\*)/g, '*$1*')
-    
-    // Italic: __text__ or _text_
-    .replace(/\\_\\_(.*?)\\_\\_/g, '__$1__')
-    .replace(/(?<!_)\\_([^_\n]+?)\\_(?!_)/g, '_$1_')
-    
-    // Strikethrough: ~~text~~
-    .replace(/\\~\\~(.*?)\\~\\~/g, '~~$1~~')
-    
-    // Inline code: `code`
-    .replace(/\\`([^`\n]+)\\`/g, '`$1`')
-    
-    // Code blocks with language: ```lang\ncode```
-    .replace(/\\```(\w+)?\n?([\s\S]*?)\\```/g, '```$1\n$2```')
-    
-    // Links: [text](url)
-    .replace(/\\\[([^\]]+)\\\]\\\(([^)]+)\\\)/g, '[$1]($2)')
-    
-    // Headers: # text (convert to bold for Telegram)
-    .replace(/^\\#+ (.+)$/gm, '**$1**')
-
-    // Step 3: Fix edge cases and cleanup
-    // Remove escaped formatting for standalone symbols
-    .replace(/(^|[^\\])\\\*([^*\\]|$)/g, '$1*$2')
-    .replace(/(^|[^\\])\\\_([^_\\]|$)/g, '$1_$2')
-    .replace(/(^|[^\\])\\~([^~\\]|$)/g, '$1~$2')
-    
-    // Fix URLs - escape dots but preserve structure
-    .replace(/(https?:\/\/[^\s\]]+)/g, (url) => {
-      // Don't double-escape already escaped dots
-      return url.replace(/(?<!\\)\./g, '\\.');
-    })
-    
-    // Clean up multiple consecutive escapes
-    .replace(/\\{2,}/g, '\\')
-    
-    // Step 4: Final cleanup
-    .trim()
-    .replace(/\\+$/g, '');
-}
-function cleanMarkdownForTelegram(text) {
-  // Characters that need to be escaped in MarkdownV2
-  const escapeChars = ['_', '*', '[', ']', '(', ')', '~', '`', '>', '#', '+', '-', '=', '|', '{', '}', '.', '!'];
-  
-  // Step 1: Preserve code blocks and inline code by extracting them
-  const codeBlocks = [];
-  const inlineCodes = [];
-  
-  // Extract code blocks (```code```)
-  let processed = text.replace(/```[\s\S]*?```/g, (match) => {
-    codeBlocks.push(match);
-    return `__CODE_BLOCK_${codeBlocks.length - 1}__`;
-  });
-  
-  // Extract inline code (`code`)
-  processed = processed.replace(/`[^`\n]+`/g, (match) => {
-    inlineCodes.push(match);
-    return `__INLINE_CODE_${inlineCodes.length - 1}__`;
-  });
-  
-  // Step 2: Escape special characters in regular text
-  escapeChars.forEach(char => {
-    processed = processed.replace(new RegExp(`\\${char}`, 'g'), `\\${char}`);
-  });
-  
-  // Step 3: Convert markdown formatting
-  // Bold: **text** -> *text*
-  processed = processed.replace(/\\\*\\\*(.*?)\\\*\\\*/g, '*$1*');
-  
-  // Italic: *text* -> _text_ (but not if already part of bold)
-  processed = processed.replace(/(?<!\\)\\\*([^*\n]+?)\\\*(?!\\)/g, '_$1_');
-  
-  // Strikethrough: ~~text~~ -> ~text~
-  processed = processed.replace(/\\~\\~(.*?)\\~\\~/g, '~$1~');
-  
-  // Links: [text](url) -> [text](url) (fix escaped brackets)
-  processed = processed.replace(/\\\[([^\]]*?)\\\]\\\(([^)]*?)\\\)/g, '[$1]($2)');
-  
-  // Step 4: Restore code blocks and inline codes
-  codeBlocks.forEach((block, index) => {
-    processed = processed.replace(`__CODE_BLOCK_${index}__`, block);
-  });
-  
-  inlineCodes.forEach((code, index) => {
-    processed = processed.replace(`__INLINE_CODE_${index}__`, code);
-  });
-  
-  return processed;
-}
 function extractTitle(text) {
   const lines = text.trim().split('\n').filter(line => line.trim());
   if (lines.length === 0) return { title: 'بدون عنوان', rest: '' };
@@ -1106,40 +1018,17 @@ function logOperation(operation, data, duration = null) {
   console.log(`[${operation}]`, JSON.stringify(logEntry));
 }
 
-function escapeSymbols(text, textType = 'text') {
-	if (!text) {
-		return text;
-	}
-	switch (textType) {
-		case 'code':
-			return text
-				.replace(/\\/g, '\\\\')
-				.replace(/`/g, '\\`')
-		case 'link':
-			return text
-				.replace(/\\/g, '\\\\')
-				.replace(/\(/g, '\\(')
-				.replace(/\)/g, '\\)')
-		default:
-			return text
-				.replace(/_/g, '\\_')
-				.replace(/\*/g, '\\*')
-				.replace(/\[/g, '\\[')
-				.replace(/]/g, '\\]')
-				.replace(/\(/g, '\\(')
-				.replace(/\)/g, '\\)')
-				.replace(/~/g, '\\~')
-				.replace(/`/g, '\\`')
-				.replace(/>/g, '\\>')
-				.replace(/#/g, '\\#')
-				.replace(/\+/g, '\\+')
-				.replace(/-/g, '\\-')
-				.replace(/=/g, '\\=')
-				.replace(/\|/g, '\\|')
-				.replace(/{/g, '\\{')
-				.replace(/}/g, '\\}')
-				.replace(/\./g, '\\.')
-				.replace(/!/g, '\\!');
 
-	}
+
+// Clean HTML for display (remove HTML tags)
+function cleanHtmlForDisplay(html) {
+    return html
+        .replace(/<[^>]*>/g, '') // Remove all HTML tags
+        .replace(/&nbsp;/g, ' ') // Replace HTML entities
+        .replace(/&amp;/g, '&')
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&quot;/g, '"')
+        .trim();
 }
+
