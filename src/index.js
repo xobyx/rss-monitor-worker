@@ -472,21 +472,58 @@ async function extractGeminiContent(res) {
 // Create Gemini prompt
 function createGeminiPrompt(url, articleContent) {
   return `
-rewrite the article found below into a professional and comprehensive article in Modern Standard Arabic. The article should cover the topic thoroughly, utilizing subheadings to organize ideas and enhance readability.
+Rewrite the article found below into a professional and comprehensive article in Modern Standard Arabic. The article should cover the topic thoroughly, utilizing subheadings to organize ideas and enhance readability.
+
+Requirements:
 
 1. **Title:** Begin the article with an engaging and professional Arabic title using \`<b>\` tag that accurately reflects its content.
+
 2. **Language and Tone:** Write in clear, professional, and contemporary Modern Standard Arabic, suitable for specialized articles.
-3. **Formatting:** Use HTML formatting with the following Telegram-supported tags only: \`<b>\`, \`<i>\`, \`<u>\`, \`<s>\`, \`<a>\`, \`<code>\`, \`<pre>\`, \`<blockquote>\`
-4. **Content and Length:** The content should be highly informative, covering all key aspects of the topic derived from the provided URL. Do not exceed 3000 characters.
-5. **Subheadings:** Divide the article into logical sections using 2-4 clear and relevant Arabic subheadings with \`<b>\` or \`<u>\` tags to structure the information and improve the flow of ideas.
-6. **Paragraphs:** Use line breaks for paragraphs, \`<b>\` for bold text, \`<i>\` for italic text, and \`<u>\` for underlined subheadings.
-7. **Links:** Format any links using \`<a href="URL">text</a>\` structure.
-8. **Hashtags:** Add 3 to 5 relevant Arabic hashtags at the very end of the article wrapped in \`<code>\` tags (use '_' instead of spaces in hashtag with multiple words, separate hashtags with a space).
-9. **Technical Terminology:** To improve clarity and understanding, especially for scientific or highly technical concepts, you are permitted to include the English term in parentheses immediately following its Arabic translation. This should primarily be done upon the first mention of such terms.
 
-**CRITICAL INSTRUCTION: Your output MUST contain ONLY the requested article. Do NOT provide any introductory phrases, concluding remarks, explanations, interpretations, or any text beyond the article itself. The output must begin immediately with the article's Arabic title in \`<b>\` tags and conclude strictly with the final Arabic hashtag in \`<code>\` tags.**
+3. **HTML Formatting:** Use ONLY the following Telegram-supported HTML tags:
+   - \`<b>bold</b>\` or \`<strong>bold</strong>\` for bold text
+   - \`<i>italic</i>\` or \`<em>italic</em>\` for italic text
+   - \`<u>underline</u>\` or \`<ins>underline</ins>\` for underlined text
+   - \`<s>strikethrough</s>\` or \`<strike>strikethrough</strike>\` or \`<del>strikethrough</del>\` for strikethrough
+   - \`<code>inline code</code>\` for inline monospace text
+   - \`<pre>preformatted text</pre>\` for code blocks
+   - \`<blockquote>quoted text</blockquote>\` for quotations
+   - \`<a href="URL">link text</a>\` for hyperlinks
 
-**If you encounter any issue that prevents you from generating the article (e.g., inability to access or process the URL, content restrictions, or a system error), your response MUST be *only*: ###error2###**
+4. **HTML Entity Escaping:** All \`<\`, \`>\`, and \`&\` symbols that are NOT part of HTML tags MUST be replaced with:
+   - \`<\` → \`&lt;\`
+   - \`>\` → \`&gt;\`
+   - \`&\` → \`&amp;\`
+   - \`"\` → \`&quot;\` (if needed in attributes)
+
+5. **Content and Length:** 
+   - Maximum 4096 characters (Telegram's message limit)
+   - Highly informative content covering all key aspects from the provided URL
+   - Well-structured and comprehensive
+
+6. **Structure:**
+   - Use 2-4 clear Arabic subheadings with \`<b>\` or \`<u>\` tags
+   - Separate paragraphs with double line breaks (\`\\n\\n\`)
+   - Logical flow of information
+
+7. **Links:** Format any references using \`<a href="URL">descriptive Arabic text</a>\`
+
+8. **Technical Terms:** Include English terms in parentheses after Arabic translation on first mention for clarity: \`المصطلح العربي (English Term)\`
+
+9. **Hashtags:** End with 3-5 relevant Arabic hashtags using \`<code>\` tags:
+   - Use underscores instead of spaces: \`<code>#الذكاء_الاصطناعي</code>\`
+   - Separate hashtags with single spaces
+   - Example: \`<code>#تقنية #ذكاء_اصطناعي #تطوير</code>\`
+
+Output Format:
+- Begin immediately with the Arabic title in \`<b>\` tags
+- No introductory phrases or explanations
+- End strictly with the final hashtag in \`<code>\` tags
+- Ensure all text is properly escaped for HTML entities
+
+Error Handling:
+If unable to process the URL or generate the article, respond with ONLY: \`###error2###\`
+
 
 Source URL: ${url} (reference only)
 
@@ -711,23 +748,59 @@ function cleanTextContent(htmlContent) {
 }
  function getPrompt(url){
    return `
-rewrite the article found at the link below into a professional and comprehensive article in Modern Standard Arabic. The article should cover the topic thoroughly, utilizing subheadings to organize ideas and enhance readability.
+Rewrite the article found at the link below into a professional and comprehensive article in Modern Standard Arabic. The article should cover the topic thoroughly, utilizing subheadings to organize ideas and enhance readability.
+
+Requirements:
 
 1. **Title:** Begin the article with an engaging and professional Arabic title using \`<b>\` tag that accurately reflects its content.
+
 2. **Language and Tone:** Write in clear, professional, and contemporary Modern Standard Arabic, suitable for specialized articles.
-3. **Formatting:** Use HTML formatting with the following Telegram-supported tags only: \`<b>\`, \`<i>\`, \`<u>\`, \`<s>\`, \`<a>\`, \`<code>\`, \`<pre>\`, \`<blockquote>\`
-4. **Content and Length:** The content should be highly informative, covering all key aspects of the topic derived from the provided URL. Do not exceed 3000 characters.
-5. **Subheadings:** Divide the article into logical sections using 2-4 clear and relevant Arabic subheadings with \`<b>\` or \`<u>\` tags to structure the information and improve the flow of ideas.
-6. **Paragraphs:** Use line breaks for paragraphs, \`<b>\` for bold text, \`<i>\` for italic text, and \`<u>\` for underlined subheadings.
-7. **Links:** Format any links using \`<a href="URL">text</a>\` structure.
-8. **Hashtags:** Add 3 to 5 relevant Arabic hashtags at the very end of the article wrapped in \`<code>\` tags (use '_' instead of spaces in hashtag with multiple words, separate hashtags with a space).
-9. **Technical Terminology:** To improve clarity and understanding, especially for scientific or highly technical concepts, you are permitted to include the English term in parentheses immediately following its Arabic translation. This should primarily be done upon the first mention of such terms.
 
-**CRITICAL INSTRUCTION: Your output MUST contain ONLY the requested article. Do NOT provide any introductory phrases, concluding remarks, explanations, interpretations, or any text beyond the article itself. The output must begin immediately with the article's Arabic title in \`<b>\` tags and conclude strictly with the final Arabic hashtag in \`<code>\` tags.**
+3. **HTML Formatting:** Use ONLY the following Telegram-supported HTML tags:
+   - \`<b>bold</b>\` or \`<strong>bold</strong>\` for bold text
+   - \`<i>italic</i>\` or \`<em>italic</em>\` for italic text
+   - \`<u>underline</u>\` or \`<ins>underline</ins>\` for underlined text
+   - \`<s>strikethrough</s>\` or \`<strike>strikethrough</strike>\` or \`<del>strikethrough</del>\` for strikethrough
+   - \`<code>inline code</code>\` for inline monospace text
+   - \`<pre>preformatted text</pre>\` for code blocks
+   - \`<blockquote>quoted text</blockquote>\` for quotations
+   - \`<a href="URL">link text</a>\` for hyperlinks
 
-**If you encounter any issue that prevents you from generating the article (e.g., inability to access or process the URL, content restrictions, or a system error), your response MUST be *only*: ###error1###**
+4. **HTML Entity Escaping:** All \`<\`, \`>\`, and \`&\` symbols that are NOT part of HTML tags MUST be replaced with:
+   - \`<\` → \`&lt;\`
+   - \`>\` → \`&gt;\`
+   - \`&\` → \`&amp;\`
+   - \`"\` → \`&quot;\` (if needed in attributes)
 
-URL: \${url}
+5. **Content and Length:** 
+   - Maximum 4096 characters (Telegram's message limit)
+   - Highly informative content covering all key aspects from the provided URL
+   - Well-structured and comprehensive
+
+6. **Structure:**
+   - Use 2-4 clear Arabic subheadings with \`<b>\` or \`<u>\` tags
+   - Separate paragraphs with double line breaks (\`\\n\\n\`)
+   - Logical flow of information
+
+7. **Links:** Format any references using \`<a href="URL">descriptive Arabic text</a>\`
+
+8. **Technical Terms:** Include English terms in parentheses after Arabic translation on first mention for clarity: \`المصطلح العربي (English Term)\`
+
+9. **Hashtags:** End with 3-5 relevant Arabic hashtags using \`<code>\` tags:
+   - Use underscores instead of spaces: \`<code>#الذكاء_الاصطناعي</code>\`
+   - Separate hashtags with single spaces
+   - Example: \`<code>#تقنية #ذكاء_اصطناعي #تطوير</code>\`
+
+Output Format:
+- Begin immediately with the Arabic title in \`<b>\` tags
+- No introductory phrases or explanations
+- End strictly with the final hashtag in \`<code>\` tags
+- Ensure all text is properly escaped for HTML entities
+
+Error Handling:
+If unable to process the URL or generate the article, respond with ONLY: \`###error1###\`
+
+URL: ${url}
 `.trim();
  }
 // Enhanced Gemini API calls
