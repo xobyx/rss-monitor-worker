@@ -1,7 +1,5 @@
 // Enhanced Cloudflare Worker for RSS Feed Monitoring
 // Improved error handling, logging, configuration, and code organization
-import telegramifyMarkdown from 'https://esm.sh/telegramify-markdown@1.0.4';
-
 // Configuration constants
 const CONFIG = {
   TELEGRAM_MAX_LENGTH: 4096,
@@ -476,7 +474,7 @@ ${articleContent}
 
 // Process content for Telegram
 function processContent(content) {
-  const cleanedContent = telegramifyMarkdown(content);
+  const cleanedContent = escapeSymbols(content);
   const { title, rest } = extractTitle(cleanedContent);
   const hashtags = extractHashtags(cleanedContent);
   const messages = splitMessageSmart(cleanedContent);
