@@ -381,7 +381,7 @@ async function processRSSItem(item, env) {
     const processedContent = processContent(content);
     
     // Send to Telegram
-    const telegramResults = await sendToTelegram(
+    const telegramResults = await sendToTelegramWithRateLimit(
       env.TELEGRAM_BOT_TOKEN,
       env.TELEGRAM_CHAT_ID,
       processedContent.messages
@@ -570,7 +570,7 @@ async function fetchWithTimeout(url, options = {}) {
 // Enhanced main content extraction
 function extractMainContent(html) {
   try {
-    // Remove unwanted elements
+    // Remove unwanted elements more thoroughly
     let cleanHtml = html
       .replace(/<script[\s\S]*?<\/script>/gi, '')
       .replace(/<style[\s\S]*?<\/style>/gi, '')
@@ -578,46 +578,84 @@ function extractMainContent(html) {
       .replace(/<header[\s\S]*?<\/header>/gi, '')
       .replace(/<footer[\s\S]*?<\/footer>/gi, '')
       .replace(/<aside[\s\S]*?<\/aside>/gi, '')
-      .replace(/<div[^>]*class="[^"]*(?:sidebar|menu|advertisement|ads|related|comments)[^"]*"[\s\S]*?<\/div>/gi, '');
+      .replace(/<div[^>]*class="[^"]*(?:sidebar|menu|advertisement|ads|related|comments|social|share)[^"]*"[\s\S]*?<\/div>/gi, '')
+      .replace(/<div[^>]*id="[^"]*(?:sidebar|menu|advertisement|ads|related|comments|social|share)[^"]*"[\s\S]*?<\/div>/gi, '');
     
-    // Strategy 1: Look for main content containers
+    // Enhanced content selectors with priority order
     const contentSelectors = [
+      // Article tags (highest priority)
       /<article[\s\S]*?<\/article>/gi,
+      // Main content areas
       /<main[\s\S]*?<\/main>/gi,
-      /<div[^>]*class="[^"]*(?:content|post-content|entry-content|article-content|main-content|post-body|entry)[^"]*"[\s\S]*?<\/div>/gi,
-      /<div[^>]*id="[^"]*(?:content|main|article|post)[^"]*"[\s\S]*?<\/div>/gi,
+      /<div[^>]*class="[^"]*(?:post-content|entry-content|article-content|main-content|content-body)[^"]*"[\s\S]*?<\/div>/gi,
+      // ID-based selectors
+      /<div[^>]*id="[^"]*(?:content|main|article|post|entry)[^"]*"[\s\S]*?<\/div>/gi,
+      // Role-based selectors
       /<div[^>]*role="main"[\s\S]*?<\/div>/gi,
-      /<section[^>]*role="main"[\s\S]*?<\/section>/gi
+      /<section[^>]*role="main"[\s\S]*?<\/section>/gi,
+      // Fallback to any content-like div
+      /<div[^>]*class="[^"]*content[^"]*"[\s\S]*?<\/div>/gi
     ];
     
     let extractedContent = '';
     
+    // Try each selector in order
     for (const selector of contentSelectors) {
       const matches = cleanHtml.match(selector);
       if (matches && matches.length > 0) {
+        // Find the longest match (likely the main content)
         extractedContent = matches.reduce((longest, current) => 
           current.length > longest.length ? current : longest, '');
-        break;
+        
+        // If we found substantial content, use it
+        if (extractedContent.length > 500) {
+          break;
+        }
       }
     }
     
     // Strategy 2: Extract paragraphs if no main content found
     if (!extractedContent || extractedContent.length < 200) {
       const paragraphs = cleanHtml.match(/<p[\s\S]*?<\/p>/gi) || [];
-      extractedContent = paragraphs.join('\n');
+      if (paragraphs.length > 0) {
+        extractedContent = paragraphs.join('\n');
+      }
     }
     
-    // Strategy 3: Last resort - extract all text
+    // Strategy 3: Try to extract from common news site structures
+    if (!extractedContent || extractedContent.length < 200) {
+      const newsSelectors = [
+        /<div[^>]*class="[^"]*(?:story|news|article)[^"]*"[\s\S]*?<\/div>/gi,
+        /<section[^>]*class="[^"]*(?:story|news|article)[^"]*"[\s\S]*?<\/section>/gi
+      ];
+      
+      for (const selector of newsSelectors) {
+        const matches = cleanHtml.match(selector);
+        if (matches && matches.length > 0) {
+          extractedContent = matches[0];
+          break;
+        }
+      }
+    }
+    
+    // Strategy 4: Last resort - extract all text
     if (!extractedContent || extractedContent.length < 100) {
       extractedContent = cleanHtml;
     }
     
     // Clean up extracted content
-    return cleanTextContent(extractedContent);
+    const cleanedContent = cleanTextContent(extractedContent);
+    
+    // Final validation
+    if (!cleanedContent || cleanedContent.length < 100) {
+      throw new Error('Insufficient content extracted from HTML');
+    }
+    
+    return cleanedContent;
     
   } catch (error) {
     console.error('Error extracting main content:', error);
-    throw error;
+    throw new Error(`Content extraction failed: ${error.message}`);
   }
 }
 
@@ -714,10 +752,14 @@ async function makeGeminiRequest(prompt, apiKey,use_url_context=false) {
 }
 
 // Enhanced Telegram messaging
-async function sendToTelegram(botToken, chatId, messages) {
+async function sendToTelegramWithRateLimit(botToken, chatId, messages) {
   const results = [];
+  const maxRequestsPerMinute = 20; // Telegram limit
+  const delayBetweenRequests = Math.max(CONFIG.MESSAGE_DELAY, 60000 / maxRequestsPerMinute);
   
   for (let i = 0; i < messages.length; i++) {
+    const startTime = Date.now();
+    
     try {
       const response = await fetch(
         `https://api.telegram.org/bot${botToken}/sendMessage`,
@@ -735,20 +777,35 @@ async function sendToTelegram(botToken, chatId, messages) {
       );
       
       const responseData = await response.json();
+      const duration = Date.now() - startTime;
       
       results.push({
         message_index: i,
         status: response.ok ? 'success' : 'failed',
-        response: responseData
+        response: responseData,
+        duration_ms: duration
       });
       
       if (!response.ok) {
         console.error(`Telegram message ${i} failed:`, responseData);
+        
+        // Handle rate limiting
+        if (response.status === 429) {
+          const retryAfter = responseData.parameters?.retry_after || 60;
+          console.log(`Rate limited. Waiting ${retryAfter} seconds...`);
+          await new Promise(resolve => setTimeout(resolve, retryAfter * 1000));
+        }
       }
+      
+      logOperation('telegram_send', {
+        message_index: i,
+        status: response.ok ? 'success' : 'failed',
+        message_length: messages[i].length
+      }, duration);
       
       // Rate limiting delay
       if (i < messages.length - 1) {
-        await new Promise(resolve => setTimeout(resolve, CONFIG.MESSAGE_DELAY));
+        await new Promise(resolve => setTimeout(resolve, delayBetweenRequests));
       }
       
     } catch (error) {
@@ -756,6 +813,11 @@ async function sendToTelegram(botToken, chatId, messages) {
       results.push({
         message_index: i,
         status: 'error',
+        error: error.message
+      });
+      
+      logOperation('telegram_error', {
+        message_index: i,
         error: error.message
       });
     }
@@ -947,53 +1009,53 @@ function cleanMarkdownForTelegram__(text) {
     .replace(/\\+$/g, '');
 }
 function cleanMarkdownForTelegram(text) {
-    // Characters that need to be escaped in MarkdownV2
-    const escapeChars = ['_', '*', '[', ']', '(', ')', '~', '`', '>', '#', '+', '-', '=', '|', '{', '}', '.', '!'];
-    
-    // Step 1: Preserve code blocks and inline code by extracting them
-    const codeBlocks = [];
-    const inlineCodes = [];
-    
-    // Extract code blocks (```code```)
-    let processed = text.replace(/```[\s\S]*?```/g, (match) => {
-        codeBlocks.push(match);
-        return `__CODE_BLOCK_${codeBlocks.length - 1}__`;
-    });
-    
-    // Extract inline code (`code`)
-    processed = processed.replace(/`[^`\n]+`/g, (match) => {
-        inlineCodes.push(match);
-        return `__INLINE_CODE_${inlineCodes.length - 1}__`;
-    });
-    
-    // Step 2: Escape special characters in regular text
-    escapeChars.forEach(char => {
-        processed = processed.replace(new RegExp(`\\${char}`, 'g'), `\\${char}`);
-    });
-    
-    // Step 3: Convert markdown formatting
-    // Bold: **text** -> *text*
-    processed = processed.replace(/\\\*\\\*(.*?)\\\*\\\*/g, '*$1*');
-    
-    // Italic: *text* -> _text_ (but not if already part of bold)
-    processed = processed.replace(/(?<!\\)\\\*([^*\n]+?)\\\*(?!\\)/g, '_$1_');
-    
-    // Strikethrough: ~~text~~ -> ~text~
-    processed = processed.replace(/\\~\\~(.*?)\\~\\~/g, '~$1~');
-    
-    // Links: [text](url) -> [text](url) (fix escaped brackets)
-    processed = processed.replace(/\\\[([^\]]*?)\\\]\\\(([^)]*?)\\\)/g, '[$1]($2)');
-    
-    // Step 4: Restore code blocks and inline codes
-    codeBlocks.forEach((block, index) => {
-        processed = processed.replace(`__CODE_BLOCK_${index}__`, block);
-    });
-    
-    inlineCodes.forEach((code, index) => {
-        processed = processed.replace(`__INLINE_CODE_${index}__`, code);
-    });
-    
-    return processed;
+  // Characters that need to be escaped in MarkdownV2
+  const escapeChars = ['_', '*', '[', ']', '(', ')', '~', '`', '>', '#', '+', '-', '=', '|', '{', '}', '.', '!'];
+  
+  // Step 1: Preserve code blocks and inline code by extracting them
+  const codeBlocks = [];
+  const inlineCodes = [];
+  
+  // Extract code blocks (```code```)
+  let processed = text.replace(/```[\s\S]*?```/g, (match) => {
+    codeBlocks.push(match);
+    return `__CODE_BLOCK_${codeBlocks.length - 1}__`;
+  });
+  
+  // Extract inline code (`code`)
+  processed = processed.replace(/`[^`\n]+`/g, (match) => {
+    inlineCodes.push(match);
+    return `__INLINE_CODE_${inlineCodes.length - 1}__`;
+  });
+  
+  // Step 2: Escape special characters in regular text
+  escapeChars.forEach(char => {
+    processed = processed.replace(new RegExp(`\\${char}`, 'g'), `\\${char}`);
+  });
+  
+  // Step 3: Convert markdown formatting
+  // Bold: **text** -> *text*
+  processed = processed.replace(/\\\*\\\*(.*?)\\\*\\\*/g, '*$1*');
+  
+  // Italic: *text* -> _text_ (but not if already part of bold)
+  processed = processed.replace(/(?<!\\)\\\*([^*\n]+?)\\\*(?!\\)/g, '_$1_');
+  
+  // Strikethrough: ~~text~~ -> ~text~
+  processed = processed.replace(/\\~\\~(.*?)\\~\\~/g, '~$1~');
+  
+  // Links: [text](url) -> [text](url) (fix escaped brackets)
+  processed = processed.replace(/\\\[([^\]]*?)\\\]\\\(([^)]*?)\\\)/g, '[$1]($2)');
+  
+  // Step 4: Restore code blocks and inline codes
+  codeBlocks.forEach((block, index) => {
+    processed = processed.replace(`__CODE_BLOCK_${index}__`, block);
+  });
+  
+  inlineCodes.forEach((code, index) => {
+    processed = processed.replace(`__INLINE_CODE_${index}__`, code);
+  });
+  
+  return processed;
 }
 function extractTitle(text) {
   const lines = text.trim().split('\n').filter(line => line.trim());
@@ -1010,4 +1072,15 @@ function extractHashtags(text) {
   // Extract Arabic and English hashtags
   const hashtags = text.match(/#[\u0600-\u06FF\w]+/g) || [];
   return [...new Set(hashtags)]; // Remove duplicates
+}
+
+function logOperation(operation, data, duration = null) {
+  const logEntry = {
+    timestamp: new Date().toISOString(),
+    operation,
+    data,
+    duration_ms: duration
+  };
+  
+  console.log(`[${operation}]`, JSON.stringify(logEntry));
 }

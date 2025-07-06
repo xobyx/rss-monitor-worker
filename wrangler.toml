@@ -14,13 +14,14 @@ preview_id = "00f83b695bce4c7893ff61b7a54fcbba"
 
 # Environment variables
 [vars]
-RSS_FEED_URL = "https://example.com/feed.xml"
-TELEGRAM_BOT_TOKEN = "your-telegram-bot-token"
-TELEGRAM_CHAT_ID = "your-telegram-chat-id"
-GEMINI_API_KEY = "your-gemini-api-key"
-SITE_AUTH_TOKEN = "your-site-auth-token"
+RSS_FEED_URL = "https://news.ycombinator.com/rss"
+TELEGRAM_BOT_TOKEN = "6197678644:AAE-XSqPmKohfw99VVQgOKStx86cGXPL54I"
+TELEGRAM_CHAT_ID = "-1001463524522"
+GEMINI_API_KEY = "AIzaSyDaKIVkGzYb5-VwG5SemKMQbNxngQah94A"
+SITE_AUTH_TOKEN = "13011221"
 
-
+[observability.logs]
+enabled = true
 
 # Optional: Set up secrets for sensitive data
 # Use: wrangler secret put TELEGRAM_BOT_TOKEN
