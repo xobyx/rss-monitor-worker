@@ -472,22 +472,21 @@ async function extractGeminiContent(res) {
 // Create Gemini prompt
 function createGeminiPrompt(url, articleContent) {
   return `
-rewrite the article below into a professional and comprehensive article in Modern Standard Arabic. The article should cover the topic thoroughly, utilizing subheadings to organize ideas and enhance readability.
+rewrite the article found below into a professional and comprehensive article in Modern Standard Arabic. The article should cover the topic thoroughly, utilizing subheadings to organize ideas and enhance readability.
 
-1. **Title:** Begin the article with an engaging and professional Arabic title using \`<h1>\` tag that accurately reflects its content.
+1. **Title:** Begin the article with an engaging and professional Arabic title using \`<b>\` tag that accurately reflects its content.
 2. **Language and Tone:** Write in clear, professional, and contemporary Modern Standard Arabic, suitable for specialized articles.
-3. **Formatting:** Use HTML formatting with the following tags only: \`<h1>\`, \`<h2>\`, \`<h3>\`, \`<p>\`, \`<b>\`, \`<i>\`, \`<a>\`, \`<code>\`, \`<br>\`
+3. **Formatting:** Use HTML formatting with the following Telegram-supported tags only: \`<b>\`, \`<i>\`, \`<u>\`, \`<s>\`, \`<a>\`, \`<code>\`, \`<pre>\`, \`<blockquote>\`
 4. **Content and Length:** The content should be highly informative, covering all key aspects of the topic derived from the provided URL. Do not exceed 3000 characters.
-5. **Subheadings:** Divide the article into logical sections using 2-4 clear and relevant Arabic subheadings with \`<h2>\` or \`<h3>\` tags to structure the information and improve the flow of ideas.
-6. **Paragraphs:** Use \`<p>\` tags for paragraphs, \`<b>\` for bold text, and \`<i>\` for italic text.
+5. **Subheadings:** Divide the article into logical sections using 2-4 clear and relevant Arabic subheadings with \`<b>\` or \`<u>\` tags to structure the information and improve the flow of ideas.
+6. **Paragraphs:** Use line breaks for paragraphs, \`<b>\` for bold text, \`<i>\` for italic text, and \`<u>\` for underlined subheadings.
 7. **Links:** Format any links using \`<a href="URL">text</a>\` structure.
 8. **Hashtags:** Add 3 to 5 relevant Arabic hashtags at the very end of the article wrapped in \`<code>\` tags (use '_' instead of spaces in hashtag with multiple words, separate hashtags with a space).
 9. **Technical Terminology:** To improve clarity and understanding, especially for scientific or highly technical concepts, you are permitted to include the English term in parentheses immediately following its Arabic translation. This should primarily be done upon the first mention of such terms.
 
-**CRITICAL INSTRUCTION: Your output MUST contain ONLY the requested article. Do NOT provide any introductory phrases, concluding remarks, explanations, interpretations, or any text beyond the article itself. The output must begin immediately with the article's Arabic title in \`<h1>\` tags and conclude strictly with the final Arabic hashtag in \`<code>\` tags.**
+**CRITICAL INSTRUCTION: Your output MUST contain ONLY the requested article. Do NOT provide any introductory phrases, concluding remarks, explanations, interpretations, or any text beyond the article itself. The output must begin immediately with the article's Arabic title in \`<b>\` tags and conclude strictly with the final Arabic hashtag in \`<code>\` tags.**
 
 **If you encounter any issue that prevents you from generating the article (e.g., inability to access or process the URL, content restrictions, or a system error), your response MUST be *only*: ###error2###**
-
 
 Source URL: ${url} (reference only)
 
@@ -714,21 +713,21 @@ function cleanTextContent(htmlContent) {
    return `
 rewrite the article found at the link below into a professional and comprehensive article in Modern Standard Arabic. The article should cover the topic thoroughly, utilizing subheadings to organize ideas and enhance readability.
 
-1. **Title:** Begin the article with an engaging and professional Arabic title using \`<h1>\` tag that accurately reflects its content.
+1. **Title:** Begin the article with an engaging and professional Arabic title using \`<b>\` tag that accurately reflects its content.
 2. **Language and Tone:** Write in clear, professional, and contemporary Modern Standard Arabic, suitable for specialized articles.
-3. **Formatting:** Use HTML formatting with the following tags only: \`<h1>\`, \`<h2>\`, \`<h3>\`, \`<p>\`, \`<b>\`, \`<i>\`, \`<a>\`, \`<code>\`, \`<br>\`
+3. **Formatting:** Use HTML formatting with the following Telegram-supported tags only: \`<b>\`, \`<i>\`, \`<u>\`, \`<s>\`, \`<a>\`, \`<code>\`, \`<pre>\`, \`<blockquote>\`
 4. **Content and Length:** The content should be highly informative, covering all key aspects of the topic derived from the provided URL. Do not exceed 3000 characters.
-5. **Subheadings:** Divide the article into logical sections using 2-4 clear and relevant Arabic subheadings with \`<h2>\` or \`<h3>\` tags to structure the information and improve the flow of ideas.
-6. **Paragraphs:** Use \`<p>\` tags for paragraphs, \`<b>\` for bold text, and \`<i>\` for italic text.
+5. **Subheadings:** Divide the article into logical sections using 2-4 clear and relevant Arabic subheadings with \`<b>\` or \`<u>\` tags to structure the information and improve the flow of ideas.
+6. **Paragraphs:** Use line breaks for paragraphs, \`<b>\` for bold text, \`<i>\` for italic text, and \`<u>\` for underlined subheadings.
 7. **Links:** Format any links using \`<a href="URL">text</a>\` structure.
 8. **Hashtags:** Add 3 to 5 relevant Arabic hashtags at the very end of the article wrapped in \`<code>\` tags (use '_' instead of spaces in hashtag with multiple words, separate hashtags with a space).
 9. **Technical Terminology:** To improve clarity and understanding, especially for scientific or highly technical concepts, you are permitted to include the English term in parentheses immediately following its Arabic translation. This should primarily be done upon the first mention of such terms.
 
-**CRITICAL INSTRUCTION: Your output MUST contain ONLY the requested article. Do NOT provide any introductory phrases, concluding remarks, explanations, interpretations, or any text beyond the article itself. The output must begin immediately with the article's Arabic title in \`<h1>\` tags and conclude strictly with the final Arabic hashtag in \`<code>\` tags.**
+**CRITICAL INSTRUCTION: Your output MUST contain ONLY the requested article. Do NOT provide any introductory phrases, concluding remarks, explanations, interpretations, or any text beyond the article itself. The output must begin immediately with the article's Arabic title in \`<b>\` tags and conclude strictly with the final Arabic hashtag in \`<code>\` tags.**
 
 **If you encounter any issue that prevents you from generating the article (e.g., inability to access or process the URL, content restrictions, or a system error), your response MUST be *only*: ###error1###**
 
-URL: ${url}
+URL: \${url}
 `.trim();
  }
 // Enhanced Gemini API calls
