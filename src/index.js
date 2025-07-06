@@ -1,4 +1,3 @@
-import { telegramifyMarkdown } from 'https://cdn.jsdelivr.net/npm/telegramify-markdown-es@1.0.2/+esm';
 // Enhanced Cloudflare Worker for RSS Feed Monitoring
 // Improved error handling, logging, configuration, and code organization
 // Configuration constants
@@ -497,7 +496,7 @@ ${articleContent}
 
 // Process content for Telegram
 function processContent(content) {
-  const cleanedContent = telegramifyMarkdown(content);
+  const cleanedContent = cleanMarkdownForTelegram(content);
   //const { title, rest } = extractTitle(cleanedContent);
   //const hashtags = extractHashtags(cleanedContent);
   const messages = splitMessageSmart(cleanedContent);
