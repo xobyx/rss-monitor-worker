@@ -349,12 +349,34 @@ function decodeHTMLEntities(text) {
     return entities[entity] || entity;
   });
 }
+function validateRSSItem(item) {
+  if (!item) {
+    throw new RSSError('RSS item is null or undefined', 'INVALID_ITEM');
+  }
+  
+  if (!item.title || item.title.trim().length === 0) {
+    throw new RSSError('RSS item missing title', 'MISSING_TITLE');
+  }
+  
+  if (!item.link || item.link.trim().length === 0) {
+    throw new RSSError('RSS item missing link', 'MISSING_LINK');
+  }
+  
+  // Validate URL format
+  try {
+    new URL(item.link);
+  } catch (error) {
+    throw new RSSError('RSS item has invalid URL format', 'INVALID_URL');
+  }
+  
+  return true;
+}
 
 // Enhanced item processing with better error handling
 async function processRSSItem(item, env) {
   try {
     console.log('Processing RSS item:', item.title);
-    
+    validateRSSItem(item);
     let content;
     
     // Try Gemini with URL context first
@@ -474,14 +496,14 @@ ${articleContent}
 
 // Process content for Telegram
 function processContent(content) {
-  const cleanedContent = escapeSymbols(content);
-  const { title, rest } = extractTitle(cleanedContent);
-  const hashtags = extractHashtags(cleanedContent);
+  const cleanedContent = cleanMarkdownForTelegram(content);
+  //const { title, rest } = extractTitle(cleanedContent);
+  //const hashtags = extractHashtags(cleanedContent);
   const messages = splitMessageSmart(cleanedContent);
   
   return {
-    title,
-    hashtags,
+    //title,
+    //hashtags,
     messages,
     original_length: content.length
   };
