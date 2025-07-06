@@ -1,4 +1,4 @@
-import telegramifyMarkdownEs from 'https://cdn.jsdelivr.net/npm/telegramify-markdown-es@1.0.2/+esm'
+import { telegramifyMarkdown } from 'https://cdn.jsdelivr.net/npm/telegramify-markdown-es@1.0.2/+esm';
 // Enhanced Cloudflare Worker for RSS Feed Monitoring
 // Improved error handling, logging, configuration, and code organization
 // Configuration constants
