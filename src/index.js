@@ -1,5 +1,6 @@
 // Enhanced Cloudflare Worker for RSS Feed Monitoring
 // Improved error handling, logging, configuration, and code organization
+import telegramifyMarkdown from 'https://esm.sh/telegramify-markdown@1.0.4';
 
 // Configuration constants
 const CONFIG = {
@@ -475,7 +476,7 @@ ${articleContent}
 
 // Process content for Telegram
 function processContent(content) {
-  const cleanedContent = cleanMarkdownForTelegram(content);
+  const cleanedContent = telegramifyMarkdown(content);
   const { title, rest } = extractTitle(cleanedContent);
   const hashtags = extractHashtags(cleanedContent);
   const messages = splitMessageSmart(cleanedContent);
@@ -1083,4 +1084,42 @@ function logOperation(operation, data, duration = null) {
   };
   
   console.log(`[${operation}]`, JSON.stringify(logEntry));
+}
+
+function escapeSymbols(text, textType = 'text') {
+	if (!text) {
+		return text;
+	}
+	switch (textType) {
+		case 'code':
+			return text
+				.replace(/\\/g, '\\\\')
+				.replace(/`/g, '\\`')
+		case 'link':
+			return text
+				.replace(/\\/g, '\\\\')
+				.replace(/\(/g, '\\(')
+				.replace(/\)/g, '\\)')
+		default:
+			return text
+				.replace(/_/g, '\\_')
+				.replace(/\*/g, '\\*')
+				.replace(/\[/g, '\\[')
+				.replace(/]/g, '\\]')
+				.replace(/\(/g, '\\(')
+				.replace(/\)/g, '\\)')
+				.replace(/~/g, '\\~')
+				.replace(/`/g, '\\`')
+				.replace(/>/g, '\\>')
+				.replace(/#/g, '\\#')
+				.replace(/\+/g, '\\+')
+				.replace(/-/g, '\\-')
+				.replace(/=/g, '\\=')
+				.replace(/\|/g, '\\|')
+				.replace(/{/g, '\\{')
+				.replace(/}/g, '\\}')
+				.replace(/\./g, '\\.')
+				.replace(/!/g, '\\!');
+
+	}
 }
