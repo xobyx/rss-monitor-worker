@@ -898,7 +898,7 @@ function cleanMarkdownForTelegram_(text) {
     .replace(/\\_\\_/g, '_')       // Restore italic formatting
     .trim();
 }
-function cleanMarkdownForTelegram_(text) {
+function cleanMarkdownForTelegram__(text) {
   return text
     // Step 1: Escape ALL special chars (MarkdownV2)
     .replace(/([_*[\]()~`>#+\-=|{}.!])/g, '\\$1')
