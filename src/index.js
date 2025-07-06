@@ -898,7 +898,7 @@ function cleanMarkdownForTelegram_(text) {
     .replace(/\\_\\_/g, '_')       // Restore italic formatting
     .trim();
 }
-function cleanMarkdownForTelegram(text) {
+function cleanMarkdownForTelegram_(text) {
   return text
     // Step 1: Escape ALL special chars (MarkdownV2)
     .replace(/([_*[\]()~`>#+\-=|{}.!])/g, '\\$1')
@@ -946,7 +946,55 @@ function cleanMarkdownForTelegram(text) {
     .trim()
     .replace(/\\+$/g, '');
 }
-
+function cleanMarkdownForTelegram(text) {
+    // Characters that need to be escaped in MarkdownV2
+    const escapeChars = ['_', '*', '[', ']', '(', ')', '~', '`', '>', '#', '+', '-', '=', '|', '{', '}', '.', '!'];
+    
+    // Step 1: Preserve code blocks and inline code by extracting them
+    const codeBlocks = [];
+    const inlineCodes = [];
+    
+    // Extract code blocks (```code```)
+    let processed = text.replace(/```[\s\S]*?```/g, (match) => {
+        codeBlocks.push(match);
+        return `__CODE_BLOCK_${codeBlocks.length - 1}__`;
+    });
+    
+    // Extract inline code (`code`)
+    processed = processed.replace(/`[^`\n]+`/g, (match) => {
+        inlineCodes.push(match);
+        return `__INLINE_CODE_${inlineCodes.length - 1}__`;
+    });
+    
+    // Step 2: Escape special characters in regular text
+    escapeChars.forEach(char => {
+        processed = processed.replace(new RegExp(`\\${char}`, 'g'), `\\${char}`);
+    });
+    
+    // Step 3: Convert markdown formatting
+    // Bold: **text** -> *text*
+    processed = processed.replace(/\\\*\\\*(.*?)\\\*\\\*/g, '*$1*');
+    
+    // Italic: *text* -> _text_ (but not if already part of bold)
+    processed = processed.replace(/(?<!\\)\\\*([^*\n]+?)\\\*(?!\\)/g, '_$1_');
+    
+    // Strikethrough: ~~text~~ -> ~text~
+    processed = processed.replace(/\\~\\~(.*?)\\~\\~/g, '~$1~');
+    
+    // Links: [text](url) -> [text](url) (fix escaped brackets)
+    processed = processed.replace(/\\\[([^\]]*?)\\\]\\\(([^)]*?)\\\)/g, '[$1]($2)');
+    
+    // Step 4: Restore code blocks and inline codes
+    codeBlocks.forEach((block, index) => {
+        processed = processed.replace(`__CODE_BLOCK_${index}__`, block);
+    });
+    
+    inlineCodes.forEach((code, index) => {
+        processed = processed.replace(`__INLINE_CODE_${index}__`, code);
+    });
+    
+    return processed;
+}
 function extractTitle(text) {
   const lines = text.trim().split('\n').filter(line => line.trim());
   if (lines.length === 0) return { title: 'بدون عنوان', rest: '' };
