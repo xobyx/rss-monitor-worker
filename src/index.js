@@ -405,7 +405,8 @@ async function processRSSItem(item, env) {
     const telegramResults = await sendToTelegramWithRateLimit(
       env.TELEGRAM_BOT_TOKEN,
       env.TELEGRAM_CHAT_ID,
-      processedContent.messages
+      processedContent.messages,
+      item
     );
     
     // Post to site (if enabled)
@@ -861,7 +862,7 @@ async function makeGeminiRequest(prompt, apiKey,use_url_context=false) {
 }
 
 // Enhanced Telegram messaging
-async function sendToTelegramWithRateLimit(botToken, chatId, messages) {
+async function sendToTelegramWithRateLimit(botToken, chatId, messages,item) {
   const results = [];
   const maxRequestsPerMinute = 20; // Telegram limit
   const delayBetweenRequests = Math.max(CONFIG.MESSAGE_DELAY, 60000 / maxRequestsPerMinute);
@@ -880,8 +881,13 @@ async function sendToTelegramWithRateLimit(botToken, chatId, messages) {
             text: messages[i],
             parse_mode: 'HTML',
             reply_to_message_id: 10913,
-            disable_web_page_preview: true
-          })
+            disable_web_page_preview: true,
+            reply_markup:{
+                inline_keyboard:[
+                    {text:item.title||"link",url:item.link}
+                ]
+            }
+          })    
         }
       );
       
@@ -904,9 +910,9 @@ async function sendToTelegramWithRateLimit(botToken, chatId, messages) {
           console.log(`Rate limited. Waiting ${retryAfter} seconds...`);
           await new Promise(resolve => setTimeout(resolve, retryAfter * 1000));
         }
-
+        console.log(`Telegram message ${i} : send unformatted text`);
         const nm=messages.map(i=>cleanHtmlForDisplay(i))
-        await sendToTelegramWithRateLimit(botToken, chatId, nm);
+        await sendToTelegramWithRateLimit(botToken, chatId, nm,item);
 
       }
       
