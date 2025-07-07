@@ -872,24 +872,24 @@ async function sendToTelegramWithRateLimit(botToken, chatId, messages,item) {
     
     try {
       const response = await fetch(
-        `https://api.telegram.org/bot${botToken}/sendMessage`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            chat_id: chatId,
-            text: messages[i],
-            parse_mode: 'HTML',
-            reply_to_message_id: 10913,
-            disable_web_page_preview: true,
-            reply_markup:{
-                inline_keyboard:[
-                    {text:item.title||"link",url:item.link}
+          `https://api.telegram.org/bot${botToken}/sendMessage`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              chat_id: chatId,
+              text: messages[i],
+              parse_mode: 'HTML',
+              reply_to_message_id: 10913,
+              disable_web_page_preview: true,
+              reply_markup: {
+                inline_keyboard: [
+                  [{ text: item.title || "link", url: item.link }]
                 ]
-            }
-          })    
-        }
-      );
+              }
+            })    
+          }
+        );
       
       const responseData = await response.json();
       const duration = Date.now() - startTime;
