@@ -91,13 +91,22 @@ export default {
   }
 };
 
-// Environment validation
+// MODIFIED: Updated environment validation to include Telegraph variables
 function validateEnvironment(env) {
   const required = ['RSS_FEED_URL', 'TELEGRAM_BOT_TOKEN', 'TELEGRAM_CHAT_ID', 'GEMINI_API_KEY', 'RSS_STORAGE'];
+  const optional = ['TELEGRAPH_ACCESS_TOKEN', 'TELEGRAPH_AUTHOR_NAME', 'TELEGRAPH_AUTHOR_URL'];
+  
   const missing = required.filter(key => !env[key]);
   
   if (missing.length > 0) {
     throw new Error(`Missing required environment variables: ${missing.join(', ')}`);
+  }
+  
+  // Log Telegraph configuration status
+  if (env.TELEGRAPH_ACCESS_TOKEN) {
+    console.log('Telegraph integration: ENABLED');
+  } else {
+    console.log('Telegraph integration: DISABLED (no access token)');
   }
 }
 
@@ -372,7 +381,7 @@ function validateRSSItem(item) {
   return true;
 }
 
-// Enhanced item processing with better error handling
+// MODIFIED: Enhanced item processing with Telegraph support
 async function processRSSItem(item, env) {
   try {
     console.log('Processing RSS item:', item.title);
@@ -382,8 +391,8 @@ async function processRSSItem(item, env) {
     // Try Gemini with URL context first
     try {
       console.log('Attempting Gemini with URL context...');
-      const mprompt=getPrompt(item.link);
-      content = await makeGeminiRequestWithRetry(mprompt, env.GEMINI_API_KEY,true);
+      const mprompt = getPrompt(item.link);
+      content = await makeGeminiRequestWithRetry(mprompt, env.GEMINI_API_KEY, true);
       
       console.log('Successfully processed with Gemini URL context');
     } catch (urlError) {
@@ -401,38 +410,55 @@ async function processRSSItem(item, env) {
     // Process and clean content
     const processedContent = processContent(content);
     
-    // Send to Telegram
+    // Create Telegraph page if access token is available
+    let telegraphResult = null;
+    if (env.TELEGRAPH_ACCESS_TOKEN) {
+      try {
+        console.log('Creating Telegraph page...');
+        
+        const title = extractTitleFromContent(content);
+        const telegraphContent = convertToTelegraphFormat(content);
+        
+        const telegraphPage = await createTelegraphPage(
+          env.TELEGRAPH_ACCESS_TOKEN,
+          title,
+          telegraphContent,
+          env.TELEGRAPH_AUTHOR_NAME || 'RSS Monitor',
+          env.TELEGRAPH_AUTHOR_URL || ''
+        );
+        
+        telegraphResult = {
+          success: true,
+          url: telegraphPage.url,
+          path: telegraphPage.path,
+          title: telegraphPage.title
+        };
+        
+        console.log('Telegraph page created:', telegraphPage.url);
+      } catch (telegraphError) {
+        console.warn('Telegraph page creation failed:', telegraphError.message);
+        telegraphResult = { 
+          success: false, 
+          error: telegraphError.message 
+        };
+      }
+    }
+    
+    // Send to Telegram with Telegraph link if available
     const telegramResults = await sendToTelegramWithRateLimit(
       env.TELEGRAM_BOT_TOKEN,
       env.TELEGRAM_CHAT_ID,
       processedContent.messages,
-      item
+      item,
+      telegraphResult // Pass Telegraph result
     );
-    
-    // Post to site (if enabled)
-    /*
-    let siteResult = null;
-    if (env.SITE_AUTH_TOKEN) {
-      try {
-        siteResult = await postToSite(
-          content,
-          processedContent.title,
-          processedContent.hashtags,
-          env
-        );
-      } catch (siteError) {
-        console.warn('Site posting failed:', siteError.message);
-        siteResult = { success: false, error: siteError.message };
-      }
-    }
-    */
     
     return {
       status: 'success',
       item_title: item.title,
       content_length: content.length,
       telegram_results: telegramResults,
-      //site_result: siteResult,
+      telegraph_result: telegraphResult,
       processed_at: new Date().toISOString()
     };
     
@@ -862,7 +888,8 @@ async function makeGeminiRequest(prompt, apiKey,use_url_context=false) {
 }
 
 // Enhanced Telegram messaging
-async function sendToTelegramWithRateLimit(botToken, chatId, messages,item) {
+// MODIFIED: Enhanced Telegram messaging with Telegraph link support
+async function sendToTelegramWithRateLimit(botToken, chatId, messages, item, telegraphResult = null) {
   const results = [];
   const maxRequestsPerMinute = 20; // Telegram limit
   const delayBetweenRequests = Math.max(CONFIG.MESSAGE_DELAY, 60000 / maxRequestsPerMinute);
@@ -871,25 +898,48 @@ async function sendToTelegramWithRateLimit(botToken, chatId, messages,item) {
     const startTime = Date.now();
     
     try {
+      // Prepare inline keyboard
+      const inlineKeyboard = [];
+      
+      // Add original link button
+      if (item.link) {
+        inlineKeyboard.push([{ 
+          text: item.title || "المقال الأصلي", 
+          url: item.link 
+        }]);
+      }
+      
+      // Add Telegraph link button if available
+      if (telegraphResult && telegraphResult.success && telegraphResult.url) {
+        inlineKeyboard.push([{ 
+          text: "📖 اقرأ على Telegraph", 
+          url: telegraphResult.url 
+        }]);
+      }
+      
+      const requestBody = {
+        chat_id: chatId,
+        text: messages[i],
+        parse_mode: 'HTML',
+        reply_to_message_id: 10913,
+        disable_web_page_preview: true
+      };
+      
+      // Add inline keyboard if we have buttons
+      if (inlineKeyboard.length > 0) {
+        requestBody.reply_markup = {
+          inline_keyboard: inlineKeyboard
+        };
+      }
+      
       const response = await fetch(
-          `https://api.telegram.org/bot${botToken}/sendMessage`,
-          {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              chat_id: chatId,
-              text: messages[i],
-              parse_mode: 'HTML',
-              reply_to_message_id: 10913,
-              disable_web_page_preview: true,
-              reply_markup: {
-                inline_keyboard: [
-                  [{ text: item.title || "link", url: item.link }]
-                ]
-              }
-            })    
-          }
-        );
+        `https://api.telegram.org/bot${botToken}/sendMessage`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(requestBody)
+        }
+      );
       
       const responseData = await response.json();
       const duration = Date.now() - startTime;
@@ -898,7 +948,8 @@ async function sendToTelegramWithRateLimit(botToken, chatId, messages,item) {
         message_index: i,
         status: response.ok ? 'success' : 'failed',
         response: responseData,
-        duration_ms: duration
+        duration_ms: duration,
+        telegraph_included: telegraphResult && telegraphResult.success
       });
       
       if (!response.ok) {
@@ -910,16 +961,17 @@ async function sendToTelegramWithRateLimit(botToken, chatId, messages,item) {
           console.log(`Rate limited. Waiting ${retryAfter} seconds...`);
           await new Promise(resolve => setTimeout(resolve, retryAfter * 1000));
         }
+        
         console.log(`Telegram message ${i} : send unformatted text`);
-        const nm=messages.map(i=>cleanHtmlForDisplay(i))
-        await sendToTelegramWithRateLimit(botToken, chatId, nm,item);
-
+        const nm = messages.map(msg => cleanHtmlForDisplay(msg));
+        await sendToTelegramWithRateLimit(botToken, chatId, nm, item, telegraphResult);
       }
       
       logOperation('telegram_send', {
         message_index: i,
         status: response.ok ? 'success' : 'failed',
-        message_length: messages[i].length
+        message_length: messages[i].length,
+        telegraph_included: telegraphResult && telegraphResult.success
       }, duration);
       
       // Rate limiting delay
@@ -1110,3 +1162,128 @@ function cleanHtmlForDisplay(html) {
         .trim();
 }
 
+
+// NEW: Telegraph API integration functions
+
+// Create Telegraph account (call once to get access token)
+async function createTelegraphAccount(shortName, authorName, authorUrl = '') {
+  try {
+    const response = await fetch('https://api.telegra.ph/createAccount', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        short_name: shortName,
+        author_name: authorName,
+        author_url: authorUrl
+      })
+    });
+    
+    const data = await response.json();
+    
+    if (!data.ok) {
+      throw new Error(`Telegraph account creation failed: ${data.error}`);
+    }
+    
+    return data.result;
+  } catch (error) {
+    throw new Error(`Telegraph account creation error: ${error.message}`);
+  }
+}
+
+// Create Telegraph page
+async function createTelegraphPage(accessToken, title, content, authorName = '', authorUrl = '') {
+  try {
+    const response = await fetch('https://api.telegra.ph/createPage', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        access_token: accessToken,
+        title: title,
+        content: content,
+        author_name: authorName,
+        author_url: authorUrl,
+        return_content: false
+      })
+    });
+    
+    const data = await response.json();
+    
+    if (!data.ok) {
+      throw new Error(`Telegraph page creation failed: ${data.error}`);
+    }
+    
+    return data.result;
+  } catch (error) {
+    throw new Error(`Telegraph page creation error: ${error.message}`);
+  }
+}
+
+// Convert HTML content to Telegraph format
+function convertToTelegraphFormat(htmlContent) {
+  // Telegraph supports specific HTML tags and structure
+  const telegraphContent = [];
+  
+  // Split content into paragraphs and headings
+  const elements = htmlContent.split(/\n\n+/);
+  
+  for (const element of elements) {
+    const trimmed = element.trim();
+    if (!trimmed) continue;
+    
+    // Check if it's a heading (starts with <b> or <u>)
+    if (trimmed.match(/^<[bu]>/i)) {
+      telegraphContent.push({
+        tag: 'h3',
+        children: [cleanTextForTelegraph(trimmed)]
+      });
+    } 
+    // Check if it's a blockquote
+    else if (trimmed.match(/^<blockquote>/i)) {
+      telegraphContent.push({
+        tag: 'blockquote',
+        children: [cleanTextForTelegraph(trimmed)]
+      });
+    }
+    // Check if it's code block
+    else if (trimmed.match(/^<pre>/i)) {
+      telegraphContent.push({
+        tag: 'pre',
+        children: [cleanTextForTelegraph(trimmed)]
+      });
+    }
+    // Regular paragraph
+    else {
+      telegraphContent.push({
+        tag: 'p',
+        children: [cleanTextForTelegraph(trimmed)]
+      });
+    }
+  }
+  
+  return telegraphContent;
+}
+
+// Clean text for Telegraph (preserve some HTML tags)
+function cleanTextForTelegraph(text) {
+  // Telegraph supports: a, aside, b, blockquote, br, code, em, figcaption, figure, h3, h4, hr, i, iframe, img, li, ol, p, pre, s, strong, u, ul, video
+  // Remove unsupported tags but keep supported ones
+  return text
+    .replace(/<\/?(strike|del|ins)>/gi, '') // Remove unsupported tags
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&amp;/g, '&')
+    .replace(/&quot;/g, '"')
+    .trim();
+}
+
+// Extract title from HTML content
+function extractTitleFromContent(content) {
+  const titleMatch = content.match(/<b>(.*?)<\/b>/i);
+  if (titleMatch) {
+    return cleanTextForTelegraph(titleMatch[1]).substring(0, 100); // Telegraph title limit
+  }
+  
+  // Fallback: use first 50 characters
+  const plainText = content.replace(/<[^>]*>/g, '').trim();
+  return plainText.substring(0, 50) + (plainText.length > 50 ? '...' : '');
+}

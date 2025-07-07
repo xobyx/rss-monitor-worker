@@ -19,9 +19,13 @@ TELEGRAM_BOT_TOKEN = "6197678644:AAE-XSqPmKohfw99VVQgOKStx86cGXPL54I"
 TELEGRAM_CHAT_ID = "-1001463524522"
 GEMINI_API_KEY = "AIzaSyDaKIVkGzYb5-VwG5SemKMQbNxngQah94A"
 SITE_AUTH_TOKEN = "13011221"
+TELEGRAPH_ACCESS_TOKEN="f5fa1f7f9bc01ce7f3f26f2b3aa3213ab1f390129ce3894d7083424cc889"
+TELEGRAPH_AUTHOR_NAME="oby magid"
+TELEGRAPH_AUTHOR_URL="https://t.me/xobyx"
 
 [observability.logs]
 enabled = true
+
 
 # Optional: Set up secrets for sensitive data
 # Use: wrangler secret put TELEGRAM_BOT_TOKEN
