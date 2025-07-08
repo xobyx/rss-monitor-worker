@@ -1219,8 +1219,8 @@ async function createTelegraphPage(accessToken, title, content, authorName = '',
 }
 
 // Convert HTML content to Telegraph format
+// Telegraph.ph compatible HTML string parser for Cloudflare Workers
 function convertToTelegraphFormat(htmlContent) {
-  // Telegraph supports specific HTML tags and structure
   const telegraphContent = [];
   
   // Split content into paragraphs and headings
@@ -1234,33 +1234,128 @@ function convertToTelegraphFormat(htmlContent) {
     if (trimmed.match(/^<[bu]>/i)) {
       telegraphContent.push({
         tag: 'h3',
-        children: [cleanTextForTelegraph(trimmed)]
+        children: parseInlineHTML(cleanTextForTelegraph(trimmed))
       });
     } 
     // Check if it's a blockquote
     else if (trimmed.match(/^<blockquote>/i)) {
       telegraphContent.push({
         tag: 'blockquote',
-        children: [cleanTextForTelegraph(trimmed)]
+        children: parseInlineHTML(cleanTextForTelegraph(trimmed))
       });
     }
     // Check if it's code block
     else if (trimmed.match(/^<pre>/i)) {
       telegraphContent.push({
         tag: 'pre',
-        children: [cleanTextForTelegraph(trimmed)]
+        children: parseInlineHTML(cleanTextForTelegraph(trimmed))
       });
     }
     // Regular paragraph
     else {
       telegraphContent.push({
         tag: 'p',
-        children: [cleanTextForTelegraph(trimmed)]
+        children: parseInlineHTML(cleanTextForTelegraph(trimmed))
       });
     }
   }
   
   return telegraphContent;
+}
+
+// Parse inline HTML elements within text
+function parseInlineHTML(htmlString) {
+  const result = [];
+  let html = htmlString.trim();
+  
+  // Handle simple cases where there's no HTML
+  if (!html.includes('<')) {
+    return [html];
+  }
+  
+  const tagRegex = /<(\/?)(b|strong|i|em|u|s|code|a)([^>]*)>/g;
+  let lastIndex = 0;
+  let match;
+  const tagStack = [];
+  
+  while ((match = tagRegex.exec(html)) !== null) {
+    const fullMatch = match[0];
+    const isClosing = match[1] === '/';
+    const tagName = match[2].toLowerCase();
+    const attributes = match[3];
+    const startPos = match.index;
+    
+    // Add text before this tag
+    if (startPos > lastIndex) {
+      const textContent = html.substring(lastIndex, startPos);
+      if (textContent.trim()) {
+        if (tagStack.length > 0) {
+          const currentNode = tagStack[tagStack.length - 1];
+          if (!currentNode.children) currentNode.children = [];
+          currentNode.children.push(textContent);
+        } else {
+          result.push(textContent);
+        }
+      }
+    }
+    
+    if (isClosing) {
+      // Close tag
+      if (tagStack.length > 0) {
+        const closedNode = tagStack.pop();
+        if (tagStack.length > 0) {
+          const parentNode = tagStack[tagStack.length - 1];
+          if (!parentNode.children) parentNode.children = [];
+          parentNode.children.push(closedNode);
+        } else {
+          result.push(closedNode);
+        }
+      }
+    } else {
+      // Open tag
+      const nodeElement = { tag: tagName };
+      
+      // Parse attributes for links
+      if (tagName === 'a' && attributes) {
+        const hrefMatch = attributes.match(/href\s*=\s*["']([^"']+)["']/i);
+        if (hrefMatch) {
+          nodeElement.attrs = { href: hrefMatch[1] };
+        }
+      }
+      
+      tagStack.push(nodeElement);
+    }
+    
+    lastIndex = tagRegex.lastIndex;
+  }
+  
+  // Add remaining text
+  if (lastIndex < html.length) {
+    const remainingText = html.substring(lastIndex);
+    if (remainingText.trim()) {
+      if (tagStack.length > 0) {
+        const currentNode = tagStack[tagStack.length - 1];
+        if (!currentNode.children) currentNode.children = [];
+        currentNode.children.push(remainingText);
+      } else {
+        result.push(remainingText);
+      }
+    }
+  }
+  
+  // Close any remaining open tags
+  while (tagStack.length > 0) {
+    const unclosedNode = tagStack.pop();
+    if (tagStack.length > 0) {
+      const parentNode = tagStack[tagStack.length - 1];
+      if (!parentNode.children) parentNode.children = [];
+      parentNode.children.push(unclosedNode);
+    } else {
+      result.push(unclosedNode);
+    }
+  }
+  
+  return result.length > 0 ? result : [html];
 }
 
 // Clean text for Telegraph (preserve some HTML tags)
@@ -1275,6 +1370,7 @@ function cleanTextForTelegraph(text) {
     .replace(/&quot;/g, '"')
     .trim();
 }
+
 
 // Extract title from HTML content
 function extractTitleFromContent(content) {
