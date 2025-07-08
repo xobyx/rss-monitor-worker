@@ -164,11 +164,11 @@ async function handleRSSCheck(env) {
     
     // Check if item is new
     const itemId = latestItem.guid || latestItem.link || generateItemId(latestItem);
-    const isNew = await isItemNew(itemId, env);
+    const {isNew,gemini_output} = await isItemNew(itemId, env);
     
     if (!isNew) {
       console.log('Item already processed:', itemId);
-      return createResponse({ message: 'Item already processed' }, 200);
+      return createResponse({ message: 'Item already processed', content :gemini_output}, 200);
     }
     
     console.log('Processing new item:', latestItem.title);
@@ -178,7 +178,7 @@ async function handleRSSCheck(env) {
     
     // Mark as processed only if successful
     if (result.status === 'success') {
-      await markItemAsProcessed(itemId, env);
+      await markItemAsProcessed(itemId, result, env);
     }
     
     const duration = Date.now() - startTime;
@@ -459,7 +459,8 @@ async function processRSSItem(item, env) {
       content_length: content.length,
       telegram_results: telegramResults,
       telegraph_result: telegraphResult,
-      processed_at: new Date().toISOString()
+      processed_at: new Date().toISOString(),
+      gemini_output: content
     };
     
   } catch (error) {
@@ -468,7 +469,8 @@ async function processRSSItem(item, env) {
       status: 'error',
       error: error.message,
       code: error.code || 'PROCESSING_ERROR',
-      item_title: item.title || 'Unknown'
+      item_title: item.title || 'Unknown',
+      gemini_output: content || 'no Gemini output'
     };
   }
 }
@@ -1047,20 +1049,26 @@ async function postToSite(content, title, tags, env) {
 async function isItemNew(itemId, env) {
   try {
     const key = `processed_item_${itemId}`;
-    const value = await env.RSS_STORAGE.get(key);
-    return value === null;
+    
+    const value = await env.RSS_STORAGE.get(key, { type: 'json' });
+    
+    return {
+      isNew: value === null,
+      gemini_output: value === null ? 'not available' : (value.gemini_output || 'not available')
+    };
   } catch (error) {
     console.error('Error checking item status:', error);
-    return true; // Assume new if we can't check
+    return { isNew: true, gemini_output: null }; // Assume new if we can't check
   }
 }
 
-async function markItemAsProcessed(itemId, env) {
+async function markItemAsProcessed(itemId,result, env) {
   try {
     const key = `processed_item_${itemId}`;
     await env.RSS_STORAGE.put(key, JSON.stringify({
       processed_at: new Date().toISOString(),
-      item_id: itemId
+      item_id: itemId,
+      gemini_output: result.gemini_output|| 'not available'
     }), { expirationTtl: CONFIG.ITEM_TTL });
   } catch (error) {
     console.error('Error marking item as processed:', error);
