@@ -416,8 +416,8 @@ async function processRSSItem(item, env) {
       try {
         console.log('Creating Telegraph page...');
         
-        const title = extractTitleFromContent(content);
-        const telegraphContent = convertToTelegraphFormat(content);
+        const {title , body }= extractTitleFromContent(content);
+        const telegraphContent = convertToTelegraphFormat(body);
         
         const telegraphPage = await createTelegraphPage(
           env.TELEGRAPH_ACCESS_TOKEN,
@@ -1379,15 +1379,19 @@ function cleanTextForTelegraph(text) {
     .trim();
 }
 
-
-// Extract title from HTML content
 function extractTitleFromContent(content) {
   const titleMatch = content.match(/<b>(.*?)<\/b>/i);
+  let title = '';
+  let body = '';
+
   if (titleMatch) {
-    return cleanTextForTelegraph(titleMatch[1]).substring(0, 100); // Telegraph title limit
+    title = cleanTextForTelegraph(titleMatch[1]).substring(0, 100);
+    body = content.replace(titleMatch[0], '');
+  } else {
+    const plainText = content.replace(/<[^>]*>/g, '').trim();
+    title = plainText.substring(0, 50) + (plainText.length > 50 ? '...' : '');
+    body = content;
   }
-  
-  // Fallback: use first 50 characters
-  const plainText = content.replace(/<[^>]*>/g, '').trim();
-  return plainText.substring(0, 50) + (plainText.length > 50 ? '...' : '');
+
+  return { title, body };
 }
