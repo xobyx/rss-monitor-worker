@@ -14,6 +14,8 @@ const CONFIG = {
   GEMINI_TEMPERATURE: 0.7
 };
 
+const USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36';
+
 // Error classes for better error handling
 class RSSError extends Error {
   constructor(message, code = 'RSS_ERROR') {
@@ -223,7 +225,7 @@ async function getLatestRSSItem(rssUrl) {
     
     const response = await fetchWithTimeout(rssUrl, {
       headers: {
-        'User-Agent': 'Mozilla/5.0 (compatible; RSS-Monitor/2.0)',
+        'User-Agent': USER_AGENT,
         'Accept': 'application/rss+xml, application/xml, text/xml',
         'Cache-Control': 'no-cache'
       }
@@ -501,7 +503,7 @@ async function extractGeminiContent(res) {
 // Create Gemini prompt
 function createGeminiPrompt(url, articleContent) {
   return `
-Rewrite the article found below into a professional and comprehensive article in Modern Standard Arabic. The article should cover the topic thoroughly, utilizing subheadings to organize ideas and enhance readability.
+Rewrite the article found below into a professional and comprehensive article in Modern Standard Arabic. The article should cover the topic thoroughly, utilizing subheadings to organize ideas and[...]
 
 Requirements:
 
@@ -510,39 +512,39 @@ Requirements:
 2. **Language and Tone:** Write in clear, professional, and contemporary Modern Standard Arabic, suitable for specialized articles.
 
 3. **HTML Formatting:** Use ONLY the following Telegram-supported HTML tags:
-   - \`<b>bold</b>\` or \`<strong>bold</strong>\` for bold text
-   - \`<i>italic</i>\` or \`<em>italic</em>\` for italic text
-   - \`<u>underline</u>\` or \`<ins>underline</ins>\` for underlined text
-   - \`<s>strikethrough</s>\` or \`<strike>strikethrough</strike>\` or \`<del>strikethrough</del>\` for strikethrough
-   - \`<code>inline code</code>\` for inline monospace text
-   - \`<pre>preformatted text</pre>\` for code blocks
-   - \`<blockquote>quoted text</blockquote>\` for quotations
-   - \`<a href="URL">link text</a>\` for hyperlinks
+    - \`<b>bold</b>\` or \`<strong>bold</strong>\` for bold text
+    - \`<i>italic</i>\` or \`<em>italic</em>\` for italic text
+    - \`<u>underline</u>\` or \`<ins>underline</ins>\` for underlined text
+    - \`<s>strikethrough</s>\` or \`<strike>strikethrough</strike>\` or \`<del>strikethrough</del>\` for strikethrough
+    - \`<code>inline code</code>\` for inline monospace text
+    - \`<pre>preformatted text</pre>\` for code blocks
+    - \`<blockquote>quoted text</blockquote>\` for quotations
+    - \`<a href="URL">link text</a>\` for hyperlinks
 
 4. **HTML Entity Escaping:** All \`<\`, \`>\`, and \`&\` symbols that are NOT part of HTML tags MUST be replaced with:
-   - \`<\` → \`&lt;\`
-   - \`>\` → \`&gt;\`
-   - \`&\` → \`&amp;\`
-   - \`"\` → \`&quot;\` (if needed in attributes)
+    - \`<\` → \`&lt;\`
+    - \`>\` → \`&gt;\`
+    - \`&\` → \`&amp;\`
+    - \`"\` → \`&quot;\` (if needed in attributes)
 
 5. **Content and Length:** 
-   - Maximum 4096 characters (Telegram's message limit)
-   - Highly informative content covering all key aspects from the provided URL
-   - Well-structured and comprehensive
+    - Maximum 4096 characters (Telegram's message limit)
+    - Highly informative content covering all key aspects from the provided URL
+    - Well-structured and comprehensive
 
 6. **Structure:**
-   - Use 2-4 clear Arabic subheadings with \`<b>\` or \`<u>\` tags
-   - Separate paragraphs with double line breaks (\`\\n\\n\`)
-   - Logical flow of information
+    - Use 2-4 clear Arabic subheadings with \`<b>\` or \`<u>\` tags
+    - Separate paragraphs with double line breaks (\`\\n\\n\`)
+    - Logical flow of information
 
 7. **Links:** Format any references using \`<a href="URL">descriptive Arabic text</a>\`
 
 8. **Technical Terms:** Include English terms in parentheses after Arabic translation on first mention for clarity: \`المصطلح العربي (English Term)\`
 
 9. **Hashtags:** End with 3-5 relevant Arabic hashtags using \`<code>\` tags:
-   - Use underscores instead of spaces: \`<code>#الذكاء_الاصطناعي</code>\`
-   - Separate hashtags with single spaces
-   - Example: \`<code>#تقنية #ذكاء_اصطناعي #تطوير</code>\`
+    - Use underscores instead of spaces: \`<code>#الذكاء_الاصطناعي</code>\`
+    - Separate hashtags with single spaces
+    - Example: \`<code>#تقنية #ذكاء_اصطناعي #تطوير</code>\`
 
 Output Format:
 - Begin immediately with the Arabic title in \`<b>\` tags
@@ -595,7 +597,7 @@ async function extractContentFromUrl(url) {
     
     const response = await fetchWithTimeout(url, {
       headers: {
-        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'User-Agent': USER_AGENT,
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
         'Accept-Language': 'en-US,en;q=0.5',
         'Accept-Encoding': 'gzip, deflate',
@@ -775,9 +777,9 @@ function cleanTextContent(htmlContent) {
     .replace(/^\s*\n/gm, '')  // Remove empty lines
     .trim();
 }
- function getPrompt(url){
-   return `
-Rewrite the article found at the link below into a professional and comprehensive article in Modern Standard Arabic. The article should cover the topic thoroughly, utilizing subheadings to organize ideas and enhance readability.
+  function getPrompt(url){
+    return `
+Rewrite the article found at the link below into a professional and comprehensive article in Modern Standard Arabic. The article should cover the topic thoroughly, utilizing subheadings to organi[...]
 
 Requirements:
 
@@ -786,39 +788,39 @@ Requirements:
 2. **Language and Tone:** Write in clear, professional, and contemporary Modern Standard Arabic, suitable for specialized articles.
 
 3. **HTML Formatting:** Use ONLY the following Telegram-supported HTML tags:
-   - \`<b>bold</b>\` or \`<strong>bold</strong>\` for bold text
-   - \`<i>italic</i>\` or \`<em>italic</em>\` for italic text
-   - \`<u>underline</u>\` or \`<ins>underline</ins>\` for underlined text
-   - \`<s>strikethrough</s>\` or \`<strike>strikethrough</strike>\` or \`<del>strikethrough</del>\` for strikethrough
-   - \`<code>inline code</code>\` for inline monospace text
-   - \`<pre>preformatted text</pre>\` for code blocks
-   - \`<blockquote>quoted text</blockquote>\` for quotations
-   - \`<a href="URL">link text</a>\` for hyperlinks
+    - \`<b>bold</b>\` or \`<strong>bold</strong>\` for bold text
+    - \`<i>italic</i>\` or \`<em>italic</em>\` for italic text
+    - \`<u>underline</u>\` or \`<ins>underline</ins>\` for underlined text
+    - \`<s>strikethrough</s>\` or \`<strike>strikethrough</strike>\` or \`<del>strikethrough</del>\` for strikethrough
+    - \`<code>inline code</code>\` for inline monospace text
+    - \`<pre>preformatted text</pre>\` for code blocks
+    - \`<blockquote>quoted text</blockquote>\` for quotations
+    - \`<a href="URL">link text</a>\` for hyperlinks
 
 4. **HTML Entity Escaping:** All \`<\`, \`>\`, and \`&\` symbols that are NOT part of HTML tags MUST be replaced with:
-   - \`<\` → \`&lt;\`
-   - \`>\` → \`&gt;\`
-   - \`&\` → \`&amp;\`
-   - \`"\` → \`&quot;\` (if needed in attributes)
+    - \`<\` → \`&lt;\`
+    - \`>\` → \`&gt;\`
+    - \`&\` → \`&amp;\`
+    - \`"\` → \`&quot;\` (if needed in attributes)
 
 5. **Content and Length:** 
-   - Maximum 4096 characters (Telegram's message limit)
-   - Highly informative content covering all key aspects from the provided URL
-   - Well-structured and comprehensive
+    - Maximum 4096 characters (Telegram's message limit)
+    - Highly informative content covering all key aspects from the provided URL
+    - Well-structured and comprehensive
 
 6. **Structure:**
-   - Use 2-4 clear Arabic subheadings with \`<b>\` or \`<u>\` tags
-   - Separate paragraphs with double line breaks (\`\\n\\n\`)
-   - Logical flow of information
+    - Use 2-4 clear Arabic subheadings with \`<b>\` or \`<u>\` tags
+    - Separate paragraphs with double line breaks (\`\\n\\n\`)
+    - Logical flow of information
 
 7. **Links:** Format any references using \`<a href="URL">descriptive Arabic text</a>\`
 
 8. **Technical Terms:** Include English terms in parentheses after Arabic translation on first mention for clarity: \`المصطلح العربي (English Term)\`
 
 9. **Hashtags:** End with 3-5 relevant Arabic hashtags using \`<code>\` tags:
-   - Use underscores instead of spaces: \`<code>#الذكاء_الاصطناعي</code>\`
-   - Separate hashtags with single spaces
-   - Example: \`<code>#تقنية #ذكاء_اصطناعي #تطوير</code>\`
+    - Use underscores instead of spaces: \`<code>#الذكاء_الاصطناعي</code>\`
+    - Separate hashtags with single spaces
+    - Example: \`<code>#تقنية #ذكاء_اصطناعي #تطوير</code>\`
 
 Output Format:
 - Begin immediately with the Arabic title in \`<b>\` tags
@@ -831,7 +833,7 @@ If unable to process the URL or generate the article, respond with ONLY: \`###er
 
 URL: ${url}
 `.trim();
- }
+  }
 // Enhanced Gemini API calls
 
 
@@ -1281,7 +1283,7 @@ function parseInlineHTML(htmlString) {
     return [html];
   }
   
-  const tagRegex = /<(\/?)(b|strong|i|em|u|s|code|a)([^>]*)>/g;
+  const tagRegex = /<(\/?)((?:b|strong|i|em|u|s|code|a))([^>]*)>/g;
   let lastIndex = 0;
   let match;
   const tagStack = [];
